@@ -10,6 +10,7 @@ django-environ = "*"
 firebase-admin = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
+gunicorn = "*"
 
 [dev-packages]
 
