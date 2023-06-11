@@ -61,19 +61,19 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'Podsack.urls'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'authentication.customauth.CustomAuthBackend',
-    ],
-    # 'DEFAULT_PERMISSION_CLASSES': [
-    #     'rest_framework.permissions.IsAuthenticated',
+    # 'DEFAULT_AUTHENTICATION_CLASSES': [
+    #     'authentication.customauth.CustomAuthBackend',
     # ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     'DEFAULT_VERSION': 'v1',
     'ALLOWED_VERSIONS': {'v1'}
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     "SIGNING_KEY": SECRET_KEY,

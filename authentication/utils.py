@@ -1,9 +1,12 @@
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.backends import TokenBackend
 from rest_framework.exceptions import ValidationError
 from .models import UserSession
 from datetime import datetime, timedelta
 from django.conf import settings
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class AuthUtils:
@@ -23,13 +26,18 @@ class AuthUtils:
 
     @staticmethod
     def get_user_from_token(request):
-        authorization_header = request.META.get('Authorization')
+        authorization_header = request.META.get('HTTP_AUTHORIZATION')
 
         if authorization_header is not None:
             try:
+                user = None
                 token = authorization_header.split(' ')[1]
-                valid_data = TokenBackend(algorithm='HS256').decode(token, verify=True)
-                user = valid_data['user']
+                valid_data = AccessToken(token)
+                user_id = valid_data.get('user_id')
+
+                # TODO Cache the frequently accessed user
+                if user_id is not None:
+                    user = User.objects.filter(id=user_id).first()
                 return user
             except ValidationError as v:
                 print("validation error", v)

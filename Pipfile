@@ -11,8 +11,9 @@ firebase-admin = "*"
 djangorestframework = "*"
 djangorestframework-simplejwt = "*"
 gunicorn = "*"
+django = "==4.1.3"
 
 [dev-packages]
 
 [requires]
-python_version = "3.11"
+python_version = "3.10"

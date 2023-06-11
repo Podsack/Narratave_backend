@@ -14,10 +14,10 @@ class User(AbstractUser):
 
     email = models.EmailField()
     username = None
-    role = models.CharField(choices=ROLE_CHOICES, default="CONSUMER")
-    profile_picture = models.CharField(blank=True)
+    role = models.CharField(choices=ROLE_CHOICES, default="CONSUMER", max_length=255)
+    profile_picture = models.URLField(blank=True,null=True)
     dob = models.DateField(null=True, blank=True)
-    country = models.CharField(blank=True)
+    country = models.CharField(blank=True, max_length=255)
     EMAIL_FIELD = "email"
     USERNAME_FIELD = "id"
     REQUIRED_FIELDS = ['email']
@@ -47,9 +47,9 @@ class UserSession(models.Model):
         ("APP", "app"),
         ("WEB", "web")
     ]
-    session_key = models.CharField(null=False, unique=True)
-    device_id = models.CharField(default=None, null=True)
-    device_type = models.CharField(choices=DEVICE_TYPE_CHOICES, default="app")
+    session_key = models.CharField(null=False, unique=True, max_length=255)
+    device_id = models.CharField(default=None, null=True, max_length=255)
+    device_type = models.CharField(choices=DEVICE_TYPE_CHOICES, default="app", max_length=255)
     ip_address = models.GenericIPAddressField(default=None, null=True)
     is_active = models.BooleanField(default=True)
     expired_at = models.DateTimeField(default=None)
