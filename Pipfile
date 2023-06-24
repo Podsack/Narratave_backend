@@ -12,6 +12,8 @@ djangorestframework = "*"
 djangorestframework-simplejwt = "*"
 gunicorn = "*"
 django = "==4.1.3"
+uvicorn = "*"
+httpx = "*"
 
 [dev-packages]
 

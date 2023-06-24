@@ -1,5 +1,4 @@
 from rest_framework.authentication import BaseAuthentication
-from rest_framework.permissions import AllowAny
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
 from .utils import AuthUtils

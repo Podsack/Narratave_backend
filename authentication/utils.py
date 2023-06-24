@@ -1,10 +1,11 @@
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from rest_framework_simplejwt.backends import TokenBackend
-from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework.exceptions import ValidationError, APIException
 from .models import UserSession
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from firebase_admin import auth
 
 User = get_user_model()
 
@@ -17,10 +18,20 @@ class AuthUtils:
             'refresh_token': str(refresh_token),
             'access_token': str(refresh_token.access_token),
         }
-        user_session = UserSession(id=None, session_key=str(refresh_token),
-                                   ip_address=AuthUtils.get_client_ip_address(request),
-                                   user=user,
-                                   expired_at=datetime.now() + settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME'))
+
+        current_ip = AuthUtils.get_client_ip_address(request)
+        user_session = UserSession.objects.filter(user=user, ip_address=current_ip).first()
+        new_exp = datetime.now() + settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME')
+
+        if user_session is not None:
+            user_session.ip_address = current_ip
+            user_session.session_key = str(refresh_token)
+            user_session.expired_at = new_exp
+        else:
+            user_session = UserSession(id=None, session_key=str(refresh_token),
+                                       ip_address=current_ip,
+                                       user=user,
+                                       expired_at=new_exp)
         user_session.save()
         return token
 
@@ -54,3 +65,38 @@ class AuthUtils:
         else:
             ip_addr = req_headers.get('REMOTE_ADDR')
         return ip_addr
+
+    @staticmethod
+    def get_new_access_token(refresh_token):
+        try:
+            old_refresh_token = RefreshToken(token=refresh_token)
+            user_session = UserSession.objects.select_related('user').filter(session_key=str(old_refresh_token)).first()
+
+            if user_session is None:
+                raise APIException("User session doesn't exist")
+
+            user = user_session.user
+            new_refresh_token = RefreshToken.for_user(user=user)
+
+            user_session.session_key = str(new_refresh_token)
+            user_session.expired_at = datetime.now() + timedelta(days=7)
+            user_session.save()
+
+            return str(new_refresh_token), str(new_refresh_token.access_token)
+        except TokenError as e:
+            raise APIException("Token Expired") from e
+
+
+    @staticmethod
+    def delete_session(user):
+        user_session = UserSession.objects.filter(user=user).first()
+
+        if user_session is None:
+            raise APIException("User session doesn't exist")
+
+        user_session.delete()
+        return True
+
+    @staticmethod
+    def validate_google_id_token(id_token):
+        decoded_token = auth.verify_id_token(id_token)

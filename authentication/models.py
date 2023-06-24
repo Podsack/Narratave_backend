@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.contrib.postgres.fields import ArrayField
 
 
+# TODO table partitioning
 class User(AbstractUser):
     name = "user"
 
@@ -21,7 +23,6 @@ class User(AbstractUser):
     EMAIL_FIELD = "email"
     USERNAME_FIELD = "id"
     REQUIRED_FIELDS = ['email']
-    verbose_name = "user"
 
     def clean(self):
         super().clean()
@@ -34,14 +35,15 @@ class User(AbstractUser):
         return self.email
 
     class Meta:
+        verbose_name = "user"
+        verbose_name_plural = "users"
         constraints = [
             models.UniqueConstraint(fields=['email', 'role'], name='unique_email_per_role')
         ]
 
 
 class UserSession(models.Model):
-    name = "user_sessions"
-    verbose_name = "user_sessions"
+    name = "user_session"
 
     DEVICE_TYPE_CHOICES = [
         ("APP", "app"),
@@ -55,5 +57,13 @@ class UserSession(models.Model):
     expired_at = models.DateTimeField(default=None)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
+    class Meta:
+        verbose_name = "user_session"
+        verbose_name_plural = "user_sessions"
+        indexes = [
+            models.Index("user_id", "ip_address", name="user_ip_address_idx")
+        ]
+
     def __str__(self):
         return self.session_key
+
