@@ -1,7 +1,7 @@
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
-from .utils import AuthUtils
+from .utils.auth_utils import AuthUtils
 
 User = get_user_model()
 

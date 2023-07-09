@@ -16,7 +16,11 @@
   ```
   python manage.py migrate
   ```
- 5. Starting the server
+ 5. Compile static files
+ ```
+ python manage.py collectstatic
+ ```
+ 6. Starting the server
  ```
  python manage.py runserver
  ```

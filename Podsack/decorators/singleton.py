@@ -1,12 +1,11 @@
-def singleton(cls):
-    instances = {}
+class Singleton(type):
+    _instances = {}
 
-    def get_instance(*args, **kwargs):
-        nonlocal instances
-        print(instances, id(instances))
-        if cls not in instances:
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
             try:
-                instances[cls] = cls(*args, **kwargs)
+                cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
             except Exception as e:
                 raise Exception(f"Exception in instance initialization: {e}")
-        return instances[cls]
+        return cls._instances[cls]
+

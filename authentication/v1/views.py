@@ -1,12 +1,18 @@
+import logging
+
 from rest_framework.decorators import permission_classes, api_view, authentication_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import APIException
-from .serializers import UserSerializer, GoogleSigninSerializer
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 import rest_framework.status as status
+from threading import current_thread
+import asyncio
+
+from .serializers import UserSerializer, GoogleSigninSerializer, UserPreferenceSerializer
 from ..customauth import CustomAuthBackend
-from ..utils import AuthUtils
+from ..utils.auth_utils import AuthUtils
+from ..utils.http_clients import IPClient
 
 User = get_user_model()
 
@@ -24,6 +30,12 @@ def signup(request):
             return Response({'success': False, 'message': exc}, status=status.HTTP_400_BAD_REQUEST)
 
         token = AuthUtils.generate_token(request=request, user=user)
+
+        try:
+            asyncio.run(create_preference(request, user=user))
+        except Exception as exc:
+            return Response({'success': False, 'message': exc}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({'success': True, 'message': 'Sign-up successful', 'user': serializer.data, 'token': token},
                         status=status.HTTP_201_CREATED)
     else:
@@ -35,14 +47,16 @@ def signup(request):
 @authentication_classes([])
 def login(request):
     email = request.data.get('email')
-    if email is None:
+    if email is None or email == '':
         return Response(data={'success': False, 'message': 'Invalid credentials'})
 
     user = User.objects.filter(email=email).first()
 
-    if user.check_password(raw_password=request.data.get('password')) and user.is_active:
+    if user is not None and user.is_active and user.check_password(raw_password=request.data.get('password')):
         serializer = UserSerializer(user)
+        # TODO async
         tokens_map = AuthUtils.generate_token(request=request, user=user)
+        asyncio.run(create_preference(request, user=user))
         return Response({'success': True, 'user': serializer.data, 'tokens': tokens_map})
 
     return Response(data={'success': False, 'message': 'Invalid login credentials'}, status=status.HTTP_404_NOT_FOUND)
@@ -94,3 +108,28 @@ def logout(request):
         return Response(data={'success': True, 'message': 'Logout successfully'})
     except APIException as e:
         return Response(data={'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+async def create_preference(request, user):
+    current_ip = AuthUtils.get_client_ip_address(request)
+    ip_client = IPClient()
+
+    location_data, user_preference = await asyncio.gather(
+        *[
+            ip_client.get_ip_address(ip=current_ip),
+            UserPreferenceSerializer().get_by_user_id(user_id=user.pk)
+        ]
+    )
+
+    country = location_data.get('country') or "IN"
+    state = location_data.get('region') or "West Bengal"
+
+    try:
+        if user_preference is None:
+            preference_serializer = UserPreferenceSerializer(data={'state': state, 'country': country, 'user': user.pk})
+            await preference_serializer.save()
+        else:
+            preference_serializer = UserPreferenceSerializer(instance=user_preference, data={'state': state,'country': country}, partial=True)
+            await preference_serializer.save()
+    except Exception as e:
+        raise e

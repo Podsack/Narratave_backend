@@ -10,6 +10,6 @@ class Preference(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     country = models.CharField(default='', max_length=50)
     state = models.CharField(default='', max_length=50)
-    preferred_app_language = models.CharField(blank=True, max_length=50)
-    preferred_podcast_languages = ArrayField(models.CharField(max_length=50, blank=True), blank=True)
+    preferred_app_language = models.CharField(blank=True, max_length=50, null=True)
+    preferred_podcast_languages = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)
     # TODO: add preferred category id

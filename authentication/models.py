@@ -6,6 +6,7 @@ from django.contrib.postgres.fields import ArrayField
 
 # TODO table partitioning
 class User(AbstractUser):
+
     name = "user"
 
     ROLE_CHOICES = [
@@ -15,14 +16,20 @@ class User(AbstractUser):
     ]
 
     email = models.EmailField()
-    username = None
+    username = models.CharField(blank=True, unique=True, max_length=255)
     role = models.CharField(choices=ROLE_CHOICES, default="CONSUMER", max_length=255)
     profile_picture = models.URLField(blank=True,null=True)
     dob = models.DateField(null=True, blank=True)
-    country = models.CharField(blank=True, max_length=255)
+    USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
-    USERNAME_FIELD = "id"
     REQUIRED_FIELDS = ['email']
+
+    class Meta:
+        verbose_name = "user"
+        verbose_name_plural = "users"
+        constraints = [
+            models.UniqueConstraint(fields=['email', 'role'], name='unique_email_per_role')
+        ]
 
     def clean(self):
         super().clean()
@@ -31,15 +38,9 @@ class User(AbstractUser):
         if existing_users.exists() and self.pk != existing_users.first().pk:
             raise ValidationError('Email must be unique per role.')
 
-    def __str__(self):
-        return self.email
-
-    class Meta:
-        verbose_name = "user"
-        verbose_name_plural = "users"
-        constraints = [
-            models.UniqueConstraint(fields=['email', 'role'], name='unique_email_per_role')
-        ]
+    def save(self, *args, **kwargs):
+        self.unique_identifier = f'{self.email}_{self.role}'
+        super().save(*args, **kwargs)
 
 
 class UserSession(models.Model):

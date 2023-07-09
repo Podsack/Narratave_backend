@@ -1,15 +1,13 @@
 from rest_framework.response import Response
 from rest_framework.decorators import authentication_classes, permission_classes, api_view
 from rest_framework.permissions import IsAuthenticated
-from asgiref.sync import sync_to_async
 import rest_framework.status as status
 import asyncio
 
+from ..models import Preference
 from authentication.customauth import CustomAuthBackend
-from ..utils.httpclients import IPClient
 from ..utils.app_language_loader import AppLanguageLoader
 from .serializers import UserPreferenceSerializer
-from authentication.utils import AuthUtils
 
 
 @api_view(['GET'])
@@ -17,25 +15,24 @@ from authentication.utils import AuthUtils
 @authentication_classes([CustomAuthBackend])
 # @sync_to_async
 def retrieve_app_languages(request):
-    current_ip = AuthUtils.get_client_ip_address(request)
-    ip_client = IPClient()
-    event_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(event_loop)
-    location_data = event_loop.run_until_complete(ip_client.get_ip_address(ip=current_ip))
-    app_languages = AppLanguageLoader().get_app_language(country=location_data.get('country') or "IN", state=location_data.get('region') or "West Bengal")
+    user_preference = asyncio.run(UserPreferenceSerializer().get_by_user_id(user_id=request.user.pk))
 
-    serializer = UserPreferenceSerializer(
-        data={
-            'state': location_data.get('region'),
-            'country': location_data.get('country'),
-            'user': request.user.pk,
-        }
-    )
+    country = user_preference.country
+    state = user_preference.state
+    app_languages = AppLanguageLoader().get_app_language(country=country, state=state)
 
+    return Response(data={'app_languages': app_languages}, status=status.HTTP_200_OK)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([CustomAuthBackend])
+def update_preferences(request):
     try:
-        if serializer.is_valid():
-            serializer.save()
-    except Exception as e:
-        return Response(data={}, status=status.HTTP_400_BAD_REQUEST)
+        update_resp = Preference.objects.filter(user_id=request.user.pk).update(**request.data)
 
-    return Response(data={'app_languages': app_languages}, status=status.HTTP_400_BAD_REQUEST)
+        if update_resp == 1:
+            return Response(data={'message': 'User preference saved'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

@@ -1,9 +1,11 @@
 {
   "IN": [{
-    "lang": "हिंदी",
-    "states": ["any"]
+    "localizedLanguage": "हिंदी",
+    "states": ["any"],
+    "code": "EN"
   }, {
-    "lang": "বাংলা",
-    "states": ["west bengal"]
+    "localizedLanguage": "বাংলা",
+    "states": ["west bengal"],
+    "code": "BN"
   }]
 }
