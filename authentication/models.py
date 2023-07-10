@@ -42,6 +42,11 @@ class User(AbstractUser):
         self.unique_identifier = f'{self.email}_{self.role}'
         super().save(*args, **kwargs)
 
+    @classmethod
+    def get_by_email(cls, email):
+        return cls.objects.select_related('preference').filter(email=email).first()
+
+
 
 class UserSession(models.Model):
     name = "user_session"

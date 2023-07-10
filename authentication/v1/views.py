@@ -8,7 +8,6 @@ from rest_framework.response import Response
 import rest_framework.status as status
 from threading import current_thread
 import asyncio
-
 from .serializers import UserSerializer, GoogleSigninSerializer, UserPreferenceSerializer
 from ..customauth import CustomAuthBackend
 from ..utils.auth_utils import AuthUtils
@@ -50,7 +49,7 @@ def login(request):
     if email is None or email == '':
         return Response(data={'success': False, 'message': 'Invalid credentials'})
 
-    user = User.objects.filter(email=email).first()
+    user = User.get_by_email(email=email)
 
     if user is not None and user.is_active and user.check_password(raw_password=request.data.get('password')):
         serializer = UserSerializer(user)
@@ -114,22 +113,20 @@ async def create_preference(request, user):
     current_ip = AuthUtils.get_client_ip_address(request)
     ip_client = IPClient()
 
-    location_data, user_preference = await asyncio.gather(
-        *[
-            ip_client.get_ip_address(ip=current_ip),
-            UserPreferenceSerializer().get_by_user_id(user_id=user.pk)
-        ]
-    )
+    location_data = await ip_client.get_ip_address(ip=current_ip)
 
     country = location_data.get('country') or "IN"
     state = location_data.get('region') or "West Bengal"
+    preference_serializer = None
 
     try:
-        if user_preference is None:
+        if getattr(user, "preference", None) is None:
             preference_serializer = UserPreferenceSerializer(data={'state': state, 'country': country, 'user': user.pk})
             await preference_serializer.save()
         else:
-            preference_serializer = UserPreferenceSerializer(instance=user_preference, data={'state': state,'country': country}, partial=True)
+            preference_serializer = UserPreferenceSerializer(instance=user.preference, data={'state': state,'country': country}, partial=True)
             await preference_serializer.save()
     except Exception as e:
         raise e
+
+    return preference_serializer

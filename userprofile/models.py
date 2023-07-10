@@ -13,3 +13,4 @@ class Preference(models.Model):
     preferred_app_language = models.CharField(blank=True, max_length=50, null=True)
     preferred_podcast_languages = ArrayField(models.CharField(max_length=50, blank=True), blank=True, default=list)
     # TODO: add preferred category id
+

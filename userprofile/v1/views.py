@@ -23,6 +23,12 @@ def retrieve_app_languages(request):
 
     return Response(data={'app_languages': app_languages}, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([CustomAuthBackend])
+def get_content_categories(request):
+    content_categories = []
+    return Response(data={'content_categories': content_categories}, status=status.HTTP_200_OK)
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
