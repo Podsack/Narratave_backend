@@ -5,6 +5,7 @@ from ..models import UserSession
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
+# from asyncio
 from firebase_admin import auth
 
 User = get_user_model()

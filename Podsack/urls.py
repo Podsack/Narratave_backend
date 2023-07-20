@@ -21,5 +21,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('rest_framework.urls')),
     path('v1/auth/', include('authentication.v1.urls')),
-    path('v1/preferences/', include('userprofile.v1.urls'))
+    path('v1/preferences/', include('userprofile.v1.urls')),
+    path('v1/media/', include('mediacontent.v1.urls'))
 ]

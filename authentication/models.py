@@ -39,7 +39,7 @@ class User(AbstractUser):
             raise ValidationError('Email must be unique per role.')
 
     def save(self, *args, **kwargs):
-        self.unique_identifier = f'{self.email}_{self.role}'
+        self.username = f'{self.email}_{self.role}'
         super().save(*args, **kwargs)
 
     @classmethod

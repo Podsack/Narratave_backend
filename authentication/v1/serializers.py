@@ -16,7 +16,6 @@ class UserPreferenceSerializer(serializers.ModelSerializer):
         except self.Meta.model.DoesNotExist:
             return None
 
-    @sync_to_async
     def save(self, **kwargs):
         if self.is_valid(raise_exception=True):
             validated_data = dict(
@@ -32,7 +31,7 @@ class UserPreferenceSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    preference = UserPreferenceSerializer(many=False)
+    preference = UserPreferenceSerializer(many=False, read_only=True)
 
     class Meta:
         model = User

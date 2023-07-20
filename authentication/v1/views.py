@@ -6,7 +6,7 @@ from rest_framework.exceptions import APIException
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 import rest_framework.status as status
-from threading import current_thread
+from asgiref.sync import sync_to_async
 import asyncio
 from .serializers import UserSerializer, GoogleSigninSerializer, UserPreferenceSerializer
 from ..customauth import CustomAuthBackend
@@ -117,15 +117,16 @@ async def create_preference(request, user):
 
     country = location_data.get('country') or "IN"
     state = location_data.get('region') or "West Bengal"
-    preference_serializer = None
 
     try:
-        if getattr(user, "preference", None) is None:
+        preference = await sync_to_async(getattr)(user, "preference", None)
+        if preference is None:
             preference_serializer = UserPreferenceSerializer(data={'state': state, 'country': country, 'user': user.pk})
-            await preference_serializer.save()
+            sync_to_async(preference_serializer.save)()
         else:
-            preference_serializer = UserPreferenceSerializer(instance=user.preference, data={'state': state,'country': country}, partial=True)
-            await preference_serializer.save()
+            preference_serializer = UserPreferenceSerializer(instance=user.preference,
+                                                             data={'state': state, 'country': country}, partial=True)
+            sync_to_async(preference_serializer.save)()
     except Exception as e:
         raise e
 
