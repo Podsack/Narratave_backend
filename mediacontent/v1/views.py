@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from asgiref.sync import sync_to_async
 
 from authentication.customauth import CustomAuthBackend
 from .serializers import CategorySerializer

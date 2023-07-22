@@ -23,13 +23,6 @@ def retrieve_app_languages(request):
 
     return Response(data={'app_languages': app_languages}, status=status.HTTP_200_OK)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-@authentication_classes([CustomAuthBackend])
-def get_content_categories(request):
-    content_categories = []
-    return Response(data={'content_categories': content_categories}, status=status.HTTP_200_OK)
-
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
@@ -40,5 +33,7 @@ def update_preferences(request):
 
         if update_resp == 1:
             return Response(data={'message': 'User preference saved'}, status=status.HTTP_200_OK)
+        else:
+            return Response(data={'message': 'User preference cannot be saved'}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
