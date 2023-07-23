@@ -1,4 +1,4 @@
-# Podsack_backend
+# Narratave
 ## Get Started
 1. Activate pipenv shell (If you do not have poetry then install it with: `pip install poetry`)
  ```
