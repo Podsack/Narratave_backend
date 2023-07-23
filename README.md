@@ -1,17 +1,13 @@
 # Podsack_backend
 ## Get Started
-1. Install dependencies
+1. Activate pipenv shell (If you do not have poetry then install it with: `pip install poetry`)
  ```
- pipenv install
+ poetry shell
  ```
- 2. Activate pipenv shell
+ 2. Install dependencies
  ```
- pipenv shell
+ poetry install
  ```
- 3. Go to main project folder
-  ```
-  cd Podsack
-  ```
  4. Migrate the database
   ```
   python manage.py migrate
@@ -22,5 +18,5 @@
  ```
  6. Starting the server
  ```
- python manage.py runserver
+ python manage.py runserver 8000
  ```
