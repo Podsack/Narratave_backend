@@ -12,5 +12,6 @@ class Category(models.Model):
         verbose_name = "category"
         verbose_name_plural = "categories"
 
-class Content(models.Model):
-    category = models.ManyToManyField
+
+# class Content(models.Model):
+#     category = models.ManyToManyField
