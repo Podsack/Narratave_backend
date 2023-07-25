@@ -1,5 +1,6 @@
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from .utils.auth_utils import AuthUtils
 
@@ -27,3 +28,18 @@ class CustomAuthBackend(BaseAuthentication):
 
         if password is not None and user is not None and user.check_password(password):
             return user
+
+
+class IsConsumer(IsAuthenticated):
+    def has_permission(self, request, view) -> bool:
+        return bool(super().has_permission(request, view) and request.user.role == 'CONSUMER')
+
+
+class IsAuthor(IsAuthenticated):
+    def has_permission(self, request, view) -> bool:
+        return bool(super().has_permission(request, view) and request.user.role == 'AUTHOR')
+
+
+class IsArtist(IsAuthenticated):
+    def has_permission(self, request, view) -> bool:
+        return bool(super().has_permission(request, view) and request.user.role == 'ARTIST')

@@ -6,8 +6,10 @@ from rest_framework.exceptions import APIException
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 import rest_framework.status as status
-from asgiref.sync import sync_to_async
-import asyncio
+from asgiref.sync import sync_to_async, async_to_sync
+from django.db import transaction
+import time
+
 from .serializers import UserSerializer, GoogleSigninSerializer, UserPreferenceSerializer
 from ..customauth import CustomAuthBackend
 from ..utils.auth_utils import AuthUtils
@@ -20,22 +22,23 @@ User = get_user_model()
 @permission_classes([AllowAny])
 @authentication_classes([])
 def signup(request):
-    serializer = UserSerializer(data=request.data)
+    serializer = UserSerializer(data=request.data, context={'request': request})
 
     if serializer.is_valid():
         try:
-            user = serializer.save()
+            with transaction.atomic():
+                user = serializer.save()
         except Exception as exc:
-            return Response({'success': False, 'message': exc}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        token = AuthUtils.generate_token(request=request, user=user)
+        token = async_to_sync(AuthUtils.generate_token)(request=request, user=user, check_for_session=False)
 
-        try:
-            asyncio.run(create_preference(request, user=user))
-        except Exception as exc:
-            return Response({'success': False, 'message': exc}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response({'success': True, 'message': 'Sign-up successful', 'user': serializer.data, 'token': token},
+        return Response({
+                            'success': True,
+                            'message': 'Sign-up successful',
+                            'user': {**serializer.data},
+                            'token': token
+                         },
                         status=status.HTTP_201_CREATED)
     else:
         return Response({'success': False, 'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
@@ -48,14 +51,14 @@ def login(request):
     email = request.data.get('email')
     if email is None or email == '':
         return Response(data={'success': False, 'message': 'Invalid credentials'})
-
     user = User.get_by_email(email=email)
 
     if user is not None and user.is_active and user.check_password(raw_password=request.data.get('password')):
         serializer = UserSerializer(user)
-        # TODO async
-        tokens_map = AuthUtils.generate_token(request=request, user=user)
-        asyncio.run(create_preference(request, user=user))
+        tokens_map = async_to_sync(AuthUtils.generate_token)(request=request, user=user)
+
+        # Move this to serializer
+        async_to_sync(create_preference)(request, user=user)
         return Response({'success': True, 'user': serializer.data, 'tokens': tokens_map})
 
     return Response(data={'success': False, 'message': 'Invalid login credentials'}, status=status.HTTP_404_NOT_FOUND)
@@ -113,21 +116,22 @@ async def create_preference(request, user):
     current_ip = AuthUtils.get_client_ip_address(request)
     ip_client = IPClient()
 
-    location_data = await ip_client.get_ip_address(ip=current_ip)
+    location_data = await ip_client.get_location_data(ip=current_ip)
 
     country = location_data.get('country') or "IN"
     state = location_data.get('region') or "West Bengal"
 
     try:
         preference = await sync_to_async(getattr)(user, "preference", None)
+
         if preference is None:
             preference_serializer = UserPreferenceSerializer(data={'state': state, 'country': country, 'user': user.pk})
-            sync_to_async(preference_serializer.save)()
+            await sync_to_async(preference_serializer.save)()
         else:
             preference_serializer = UserPreferenceSerializer(instance=user.preference,
                                                              data={'state': state, 'country': country}, partial=True)
-            sync_to_async(preference_serializer.save)()
+            await sync_to_async(preference_serializer.save)()
     except Exception as e:
         raise e
 
-    return preference_serializer
+    return preference_serializer.data

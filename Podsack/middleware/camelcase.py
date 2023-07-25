@@ -1,5 +1,6 @@
 import re
 import json
+import time
 
 
 class CamelCaseMiddleware:
@@ -7,14 +8,18 @@ class CamelCaseMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        start = time.time()
         # Convert request data from camelCase to snake_case
         self.convert_request_data(request)
+        print(f"request time taken {time.time() - start} ms")
 
         response = self.get_response(request)
 
         # Convert response JSON keys from snake_case to camelCase
         if response.get('Content-Type', '').startswith('application/json'):
+            start = time.time()
             self.convert_response_data(response)
+            print(f"response time taken {time.time() - start} ms")
 
         return response
 

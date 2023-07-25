@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from userprofile.models import Preference
-from asgiref.sync import sync_to_async
+from asgiref.sync import async_to_sync
 from ..utils.auth_utils import AuthUtils
 from ..models import User
+from ..utils.http_clients import IPClient
 
 
 class UserPreferenceSerializer(serializers.ModelSerializer):
@@ -37,12 +38,22 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'password', 'first_name', 'last_name', 'role', 'date_joined', 'email', 'dob', 'preference']
         extra_kwargs = {'password': {'write_only': True}}
+        read_only_fields = ['first_name', 'last_name', 'date_joined', 'preference']
 
     def create(self, validated_data):
         password = validated_data.pop('password')
         user = User(**validated_data)
         user.set_password(raw_password=password)
         user.save()
+        current_ip = AuthUtils.get_client_ip_address(request=self.context.get('request'))
+        ip_client = IPClient()
+
+        location_data = async_to_sync(ip_client.get_location_data)(ip=current_ip)
+
+        country = location_data.get('country') or "IN"
+        state = location_data.get('region') or "West Bengal"
+
+        preference = Preference.objects.create(user=user, country=country, state=state)
         return user
 
     def validate(self, data):
