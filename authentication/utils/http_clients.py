@@ -24,7 +24,7 @@ class IPClient:
 
         return cls._ip_client_instance
 
-    async def get_ip_address(self, ip):
+    async def get_location_data(self, ip):
         api_endpoint = f"{self.url}/{ip}/json"
 
         try:

@@ -6,7 +6,6 @@ from django.contrib.postgres.fields import ArrayField
 
 # TODO table partitioning
 class User(AbstractUser):
-
     name = "user"
 
     ROLE_CHOICES = [
@@ -18,7 +17,7 @@ class User(AbstractUser):
     email = models.EmailField()
     username = models.CharField(blank=True, unique=True, max_length=255)
     role = models.CharField(choices=ROLE_CHOICES, default="CONSUMER", max_length=255)
-    profile_picture = models.URLField(blank=True,null=True)
+    profile_picture = models.URLField(blank=True, null=True)
     dob = models.DateField(null=True, blank=True)
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
@@ -47,7 +46,6 @@ class User(AbstractUser):
         return cls.objects.select_related('preference').filter(email=email).first()
 
 
-
 class UserSession(models.Model):
     name = "user_session"
 
@@ -72,4 +70,3 @@ class UserSession(models.Model):
 
     def __str__(self):
         return self.session_key
-

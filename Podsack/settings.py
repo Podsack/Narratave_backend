@@ -63,18 +63,27 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'Podsack.middleware.camelcase.CamelCaseMiddleware'
+    'djangorestframework_camel_case.middleware.CamelCaseMiddleWare',
+    # 'Podsack.middleware.camelcase.CamelCaseMiddleware'
 ]
 
 ROOT_URLCONF = 'Podsack.urls'
 
 REST_FRAMEWORK = {
-    # 'DEFAULT_AUTHENTICATION_CLASSES': [
-    #     'authentication.customauth.CustomAuthBackend',
-    # ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'authentication.customauth.CustomAuthBackend',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_RENDERER_CLASSES': (
+        'djangorestframework_camel_case.render.CamelCaseJSONRenderer',
+        'djangorestframework_camel_case.render.CamelCaseBrowsableAPIRenderer',
+    ),
+
+    'DEFAULT_PARSER_CLASSES': (
+        'djangorestframework_camel_case.parser.CamelCaseJSONParser',
+    ),
     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     'DEFAULT_VERSION': 'v1',
     'ALLOWED_VERSIONS': {'v1'}

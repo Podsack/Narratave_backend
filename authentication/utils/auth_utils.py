@@ -1,19 +1,22 @@
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework.exceptions import ValidationError, APIException
-from ..models import UserSession
-from datetime import datetime, timedelta
+from datetime import timedelta
+from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth import get_user_model
-# from asyncio
+from asgiref.sync import sync_to_async
 from firebase_admin import auth
+
+from ..models import UserSession
+
 
 User = get_user_model()
 
 
 class AuthUtils:
     @staticmethod
-    def generate_token(request, user):
+    async def generate_token(request, user, check_for_session=True):
         refresh_token = RefreshToken.for_user(user)
         token = {
             'refresh_token': str(refresh_token),
@@ -21,8 +24,11 @@ class AuthUtils:
         }
 
         current_ip = AuthUtils.get_client_ip_address(request)
-        user_session = UserSession.objects.filter(user=user, ip_address=current_ip).first()
-        new_exp = datetime.now() + settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME')
+        user_session = None
+        new_exp = timezone.now() + settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME')
+
+        if check_for_session:
+            user_session = await sync_to_async(UserSession.objects.filter(user=user, ip_address=current_ip).first)()
 
         if user_session is not None:
             user_session.ip_address = current_ip
@@ -33,7 +39,7 @@ class AuthUtils:
                                        ip_address=current_ip,
                                        user=user,
                                        expired_at=new_exp)
-        user_session.save()
+        await sync_to_async(user_session.save)()
         return token
 
     @staticmethod
@@ -80,7 +86,7 @@ class AuthUtils:
             new_refresh_token = RefreshToken.for_user(user=user)
 
             user_session.session_key = str(new_refresh_token)
-            user_session.expired_at = datetime.now() + timedelta(days=7)
+            user_session.expired_at = timezone.now() + timedelta(days=7)
             user_session.save()
 
             return str(new_refresh_token), str(new_refresh_token.access_token)
