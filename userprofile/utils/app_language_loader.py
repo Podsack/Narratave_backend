@@ -1,7 +1,8 @@
 import functools
 import json
+import os
 
-from django.templatetags.static import static
+from django.conf import settings
 
 from Podsack.decorators.singleton import Singleton
 
@@ -11,7 +12,7 @@ class AppLanguageLoader(metaclass=Singleton):
 
     def __init__(self):
         if self.app_languages is None:
-            path = static('json/app_languages.json')
+            path = os.path.join(settings.STATIC_ROOT, 'json', 'app_languages.json')
             with open(path) as app_lang_file:
                 self.app_languages = json.load(app_lang_file)
 
