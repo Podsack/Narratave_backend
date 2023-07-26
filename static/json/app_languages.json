@@ -1,11 +1,19 @@
 {
-  "IN": [{
-    "localizedLanguage": "हिंदी",
-    "states": ["any"],
-    "code": "EN"
-  }, {
-    "localizedLanguage": "বাংলা",
-    "states": ["west bengal"],
-    "code": "BN"
-  }]
+  "IN": [
+    {
+      "localizedLanguage": "हिंदी",
+      "states": ["any"],
+      "code": "HI"
+    },
+    {
+      "localizedLanguage": "English",
+      "states": ["any"],
+      "code": "EN"
+    },
+    {
+      "localizedLanguage": "বাংলা",
+      "states": ["west bengal"],
+      "code": "BN"
+    }
+  ]
 }
