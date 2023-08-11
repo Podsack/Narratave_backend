@@ -3,16 +3,18 @@ import json
 import os
 
 from django.conf import settings
+from typing import Dict
 
 from Podsack.decorators.singleton import Singleton
 
 
 class AppLanguageLoader(metaclass=Singleton):
-    app_languages = None
+    app_languages: Dict = None
 
     def __init__(self):
         if self.app_languages is None:
             path = os.path.join(settings.STATIC_ROOT, 'json', 'app_languages.json')
+
             with open(path) as app_lang_file:
                 self.app_languages = json.load(app_lang_file)
 

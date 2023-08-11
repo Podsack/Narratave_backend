@@ -17,3 +17,7 @@ def retrieve_content_categories(request):
     serializer = CategorySerializer(content_categories, many=True)
     return Response(data={'content_categories': serializer.data}, status=status.HTTP_200_OK)
 
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# @authentication_classes([CustomAuthBackend])
+# def upload_content:
