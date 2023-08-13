@@ -56,6 +56,7 @@ class SeriesForm(forms.ModelForm):
 
 class PodcastSeriesAdmin(admin.ModelAdmin):
     form = SeriesForm
+    prepopulated_fields = {'slug': ('name',), }
 
     def cover_set(self, model):
         covers = model.covers.all()
@@ -63,7 +64,7 @@ class PodcastSeriesAdmin(admin.ModelAdmin):
                 covers]
         return format_html('<br>'.join(urls))
 
-    list_display = ('name', 'cover_set', 'created_at', 'updated_at')
+    list_display = ('id', 'name', 'cover_set', 'created_at', 'updated_at')
 
     def save_model(self, request, obj, form, change):
         # Get the value of the extra parameter from the form
@@ -108,6 +109,7 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
     list_filter = ('podcast_series', 'language', 'tags', 'categories',)
     search_fields = ('title',)
     filter_horizontal = ('featured_artists', 'tags', 'categories',)
+    prepopulated_fields = {'slug': ('title', 'podcast_series',), }
 
     def cover_set(self, model):
         covers = model.covers.all()
@@ -184,8 +186,9 @@ class AudioAdmin(admin.ModelAdmin):
 
 
 class SectionAdmin(admin.ModelAdmin):
-    fields = ('title', 'item_count', 'contents', 'section_url', 'priority', 'active')
-    list_display = fields
+    fields = ('title', 'item_count', 'contents', 'section_url', 'priority', 'active',)
+    list_display = ('title', 'item_count', 'contents', 'section_url', 'priority', 'active')
+    # prepopulated_fields = {'slug': ('title',), }
 
 
 admin.site.register(Section, SectionAdmin)

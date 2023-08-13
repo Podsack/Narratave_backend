@@ -8,6 +8,7 @@ from django.core.validators import RegexValidator
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.db.models.functions import Lower
+from django.utils.text import slugify
 
 from authentication.models import User
 
@@ -45,7 +46,7 @@ class Tag(models.Model):
 
 
 def cover_upload_dir(instance, file_name):
-    return os.path.join("uploads", "covers", instance.content_type.model, str(instance.content_type_id), str(instance.dim),
+    return os.path.join("uploads", "covers", instance.content_type.model, str(instance.object_id), str(instance.dim),
                         file_name)
 
 
@@ -85,6 +86,7 @@ class Cover(models.Model):
 class Series(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(default='', max_length=128)
+    slug = models.SlugField(max_length=128, unique=True)
 
     covers = GenericRelation(Cover)
     # artist = models.CharField()
@@ -99,6 +101,10 @@ class Series(models.Model):
     def __str__(self):
         return f"{self.name}"
 
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
 
 class PodcastSeries(Series):
     pass
@@ -106,7 +112,7 @@ class PodcastSeries(Series):
 
 def audio_upload_dir(instance, file_name):
     if instance.content_type is not None:
-        return os.path.join("uploads", "audios", instance.content_type.model, str(instance.content_type_id), str(instance.bit_rate),
+        return os.path.join("uploads", "audios", instance.content_type.model, str(instance.object_id), str(instance.bit_rate),
                             file_name)
     else:
         return os.path.join("uploads", "audios", str(instance.bit_rate), file_name)
@@ -139,6 +145,7 @@ class PodcastEpisode(models.Model):
     id = models.BigAutoField(primary_key=True)
     audios = GenericRelation(Audio, related_query_name='audios', null=True)
     title = models.CharField(max_length=255, null=False)
+    slug = models.SlugField(max_length=255, null=False, unique=True)
     description = models.TextField(default='')
     duration_in_sec = models.IntegerField(default=0)
     covers = GenericRelation(Cover, null=True, related_name='covers')
@@ -174,6 +181,7 @@ class PodcastEpisode(models.Model):
             for audio in self.__original_audios.all():
                 audio.delete()
 
+        self.slug = slugify(f"{self.podcast_series.name} {self.title}")
         super().save(*args, **kwargs)
         self.__original_audios = self.audios
 

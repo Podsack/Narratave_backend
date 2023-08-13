@@ -8,47 +8,86 @@ from PIL import Image
 from pydub import AudioSegment
 
 
-def most_common_used_color(img):
-    # Get width and height of Image
-    width, height = img.size
+class ImageUtil:
+    name = None
+    image = None
+    _conversion_format = "JPEG"
 
-    # Initialize Variable
-    r_total = 0
-    g_total = 0
-    b_total = 0
+    def __enter__(self):
+        return self  # Return the context manager instance (optional)
 
-    count = 0
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.image is not None:
+            self.image = None
+            self.name = None
+            print("-----------------closing image-----------")
 
-    # Iterate through each pixel
-    for x in range(0, width):
-        for y in range(0, height):
-            # r,g,b value of pixel
-            r, g, b = img.getpixel((x, y))
+    def __init__(self, image):
+        self.name = image.name
+        self.image = Image.open(image)
+
+    def most_common_used_color(self):
+        # Get width and height of Image
+        img = self.image
+        width, height = img.size
+
+        # Initialize Variable
+        r_total = 0
+        g_total = 0
+        b_total = 0
+
+        count = 0
+
+        pixels = list(img.getdata())
+
+        # Iterate through each pixel
+        for pixel in pixels:
+            if img.mode == "RGB":
+                r, g, b = pixel
+            elif img.mode == "RGBA":
+                r, g, b, a = pixel
+            else:
+                raise IOError("Unsupported image mode")
 
             r_total += r
             g_total += g
             b_total += b
             count += 1
 
-    color_tuple = r_total / count, g_total / count, b_total / count
-    return covert_rgb_to_hex(color_tuple)
+        color_tuple = r_total / count, g_total / count, b_total / count
+        return covert_rgb_to_hex(color_tuple)
 
+    def image_resized(self, h=None, w=None):
+        _image = self.image
+        content_type = Image.MIME[_image.format]
+        [rw, rh] = _image.size
 
-def image_resized(image, h=None, w=None):
-    name = image.name
-    _image = Image.open(image)
-    content_type = Image.MIME[_image.format]
+        if h is None or w is None:
+            h = rh
+            w = rw
 
-    if h is None or w is None:
-        [h, w] = _image.size
+        if rh >= rw:
+            new_width = rw
+            new_height = rw
+        else:
+            new_height = rh
+            new_width = rh
 
-    bg_color = most_common_used_color(img=_image)
-    imageTemproaryResized = _image.resize((w, h))
-    file = io.BytesIO()
-    imageTemproaryResized.save(file, _image.format)
-    file.seek(0)
-    size = sys.getsizeof(file)
-    return file, name, content_type, size, bg_color
+        left = (rw - new_width) / 2
+        top = (rh - new_height) / 2
+        right = (rw + new_width) / 2
+        bottom = (rh + new_height) / 2
+
+        image_cropped = _image.crop((left, top, right, bottom))
+
+        imageTemproaryResized = image_cropped.resize((w, h))
+        file = io.BytesIO()
+        imageTemproaryResized.save(file, self._conversion_format)
+        file.seek(0)
+        size = sys.getsizeof(file)
+        file_name, file_extension = os.path.splitext(self.name)
+        output_file_name = f"{file_name}.{self._conversion_format}"
+        return file, output_file_name, content_type, size
 
 
 def covert_rgb_to_hex(rgb_tuple):

@@ -200,6 +200,6 @@ AUTH_USER_MODEL = 'authentication.User'
 
 FIREBASE_SERVICE_ACCOUNT_KEY = 'Podsack/secrets/audiobook-bb232-firebase-adminsdk-bvlmw-6b093cfd05.json'
 
-initialize_app(
-    credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_KEY)
-)
+# initialize_app(
+#     credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_KEY)
+# )
