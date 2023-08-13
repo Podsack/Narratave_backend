@@ -24,7 +24,7 @@ class ImageUtil:
 
     def __init__(self, image):
         self.name = image.name
-        self.image = Image.open(image)
+        self.image = Image.open(image).convert(mode="RGB")
 
     def most_common_used_color(self):
         # Get width and height of Image
@@ -59,7 +59,7 @@ class ImageUtil:
 
     def image_resized(self, h=None, w=None):
         _image = self.image
-        content_type = Image.MIME[_image.format]
+        content_type = Image.MIME[self._conversion_format]
         [rw, rh] = _image.size
 
         if h is None or w is None:
