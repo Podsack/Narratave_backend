@@ -5,7 +5,7 @@ import os
 from django.conf import settings
 from typing import Dict
 
-from Podsack.decorators.singleton import Singleton
+from Narratave.decorators.singleton import Singleton
 
 
 class AppLanguageLoader(metaclass=Singleton):
