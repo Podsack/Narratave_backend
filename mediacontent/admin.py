@@ -12,11 +12,11 @@ from userprofile.utils.app_language_loader import AppLanguageLoader
 from .utils import convert_audio_in_aac, get_segmented_audio
 from .models import Category, Cover, PodcastSeries, Audio, PodcastEpisode, Tag, Section
 
-app_language_loader = AppLanguageLoader()
 default_timezone = "IN"
 
 
 def lang_choices() -> List[Tuple]:
+    app_language_loader = AppLanguageLoader()
     choices = [(item['code'], item['localizedLanguage']) for item in
                app_language_loader.app_languages.get(default_timezone)]
     return [('ANY', 'Various Languages'), *choices]
@@ -80,7 +80,7 @@ class PodcastSeriesAdmin(admin.ModelAdmin):
 class PodcastEpisodeForm(forms.ModelForm):
     image = forms.ImageField(label='Cover Image', required=False)
     audio = forms.FileField(label='audio', required=False)
-    language = forms.ChoiceField(choices=lang_choices())
+    language = forms.ChoiceField(choices=lambda: lang_choices())
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

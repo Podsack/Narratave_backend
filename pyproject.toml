@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "narratave"
+name = "Narratave"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Suvodip Mondal <smondal229@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -15,11 +15,11 @@ djangorestframework-simplejwt = "5.2.2"
 django = "4.1.3"
 uvicorn = "0.23.1"
 firebase-admin = "^6.2.0"
-djangorestframework-camel-case = "^1.4.2"
-pillow = "^10.0.0"
-pydub = "^0.25.1"
+pillow = "10.0.0"
+pydub = "0.25.1"
 ffmpeg-python = "^0.2.0"
 serpy = "^0.3.1"
+psycopg2-binary = "2.9.6"
 
 
 

@@ -1,35 +1,36 @@
-FROM python:3.11-alpine
+FROM python:3.11-alpine as base
 
-# set work directory
+ENV PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1s
+FROM base as builder
 
-# install linux dependencies 
-# these may vary by project
-# this list is relatively lightweight
-# and needed
-RUN apk update \
-    && apk add --virtual build-deps gcc python3-dev musl-dev \
-    && apk add postgresql-dev gcc python3-dev musl-dev \
-    && apk del build-deps \
-    && apk --no-cache add musl-dev linux-headers g++
+ENV PIP_DEFAULT_TIMEOUT=100 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VERSION=1.5.1
 
-# install poetry to manage python dependencies
-RUN curl -sSL https://install.python-poetry.org | python3 -
+RUN apk add --no-cache gcc libffi-dev musl-dev postgresql-dev
+RUN pip install "poetry==$POETRY_VERSION"
+RUN python -m venv /venv
 
-# install python dependencies
-COPY ./pyproject.toml .
-COPY ./poetry.lock .
-RUN pip install --user poetry
-ENV PATH="${PATH}:/root/.local/bin"
-RUN poetry install --no-interaction --no-ansi
-# copy project
-COPY . .
-# run at port 8000
+COPY pyproject.toml poetry.lock README.md ./
+RUN poetry export -f requirements.txt | /venv/bin/pip install -r /dev/stdin
+
+COPY . ./narratave
+RUN poetry build && /venv/bin/pip install dist/*.whl
+RUN /venv/bin/python ./narratave/manage.py collectstatic -v 2 --noinput
+
+FROM base as final
+
+RUN apk add --no-cache libffi libpq ffmpeg
+COPY --from=builder /venv /venv
+COPY --from=builder /app/narratave /narratave
+
+COPY docker-entrypoint.sh ./
 EXPOSE 8000
-
-# Command to run
-CMD ["sh", "-c", "poetry shell --no-interaction && python manage.py runserver 0.0.0.0:8000"]
+RUN chmod +x ./docker-entrypoint.sh
+CMD ["sh", "./docker-entrypoint.sh"]

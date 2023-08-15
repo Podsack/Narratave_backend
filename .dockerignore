@@ -1,0 +1,14 @@
+dist
+__pycache__
+*.pyc
+media
+staticfiles
+Dockerfile
+.env
+*.env
+*.dockerignore
+*.gitignore
+*.DS_Store
+*.pyo
+*.pyd
+*.db
