@@ -118,7 +118,8 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
 
     def audio_set(self, model):
         audios = model.audios.all()
-        urls = [f'<div>{audio.bit_rate} Kbps</div><audio controls><source src={audio.file.url}/></audio>' for audio in
+        urls = [f'<div>{audio.bit_rate} Kbps</div><audio controls preload="none"><source src={audio.file.url}/></audio>'
+                for audio in
                 audios]
         return format_html('<br>'.join(urls))
 
@@ -139,7 +140,7 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
 
         # Get the value of the extra parameter from the form
         image = form.cleaned_data.get('image')
-        audio = form.cleaned_data.get('audio')
+        audio: File = form.cleaned_data.get('audio')
         # Set the value of the extra parameter in the model instance
         obj.image = image
 
@@ -147,12 +148,12 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
 
         if audio is not None:
             file_name, curr_audio = get_segmented_audio(audio_file=audio)
+
             for (b, _) in Audio.BITRATE_CHOICES:
-                file_size, new_audio, converted_format, audio_duration = convert_audio_in_aac(
+                file_size, converted_file, converted_format, audio_duration = convert_audio_in_aac(
                     segmented_audio=curr_audio, bitrate=b, file_name=file_name)
-                obj.duration_in_sec = audio_duration
-                new_audio_file = File(new_audio)
-                obj.audios.create(file=new_audio_file, bit_rate=b, format=converted_format, size_in_kb=file_size)
+                obj.duration_in_sec = curr_audio.duration_seconds
+                obj.audios.create(file=converted_file, bit_rate=b, format=converted_format, size_in_kb=file_size)
 
 
 class CoverAdmin(admin.ModelAdmin):
@@ -173,11 +174,11 @@ class AudioAdmin(admin.ModelAdmin):
         bit_rate = form.cleaned_data['bit_rate']
 
         file_name, curr_audio = get_segmented_audio(audio_file=audio_file)
-        file_size, new_audio, converted_format, audio_duration = convert_audio_in_aac(segmented_audio=curr_audio,
-                                                                                      bitrate=bit_rate,
-                                                                                      file_name=file_name)
+        file_size, converted_file, converted_format, audio_duration = convert_audio_in_aac(segmented_audio=curr_audio,
+                                                                                           bitrate=bit_rate,
+                                                                                           file_name=file_name)
 
-        obj.file = File(new_audio)
+        obj.file = converted_file
         obj.format = converted_format
         obj.size_in_kb = file_size
 

@@ -113,7 +113,7 @@ class PodcastSeries(Series):
 def audio_upload_dir(instance, file_name):
     if instance.content_type is not None:
         return os.path.join("uploads", "audios", instance.content_type.model, str(instance.object_id), str(instance.bit_rate),
-                            file_name)
+                            str(file_name))
     else:
         return os.path.join("uploads", "audios", str(instance.bit_rate), file_name)
 
@@ -173,6 +173,9 @@ class PodcastEpisode(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__original_audios = self.audios
+
+    def __str__(self):
+        return self.title
 
     def save(
         self, force_insert=False, force_update=False, using=None, update_fields=None, *args, **kwargs

@@ -102,11 +102,12 @@ def convert_audio_in_aac(segmented_audio, bitrate, file_name):
     converted_format = ".aac"
     ts = int(datetime.datetime.utcnow().timestamp())
     out_file_name = f"{file_name}_{ts}_{bitrate}_{converted_format}"
-    new_audio = segmented_audio.export(out_f=out_file_name, format="adts", bitrate=f"{bitrate}k")
+    new_audio = segmented_audio.export(format="adts", bitrate=f"{bitrate}k")
     audio_duration = segmented_audio.duration_seconds
-    file_size = os.path.getsize(out_file_name)/1000
+    converted_file = File(file=new_audio, name=out_file_name)
+    file_size = converted_file.size/1000
 
-    return file_size, new_audio, converted_format, audio_duration
+    return file_size, converted_file, converted_format, audio_duration
 
 
 def get_segmented_audio(audio_file):
