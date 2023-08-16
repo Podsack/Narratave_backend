@@ -1,6 +1,3 @@
-set -e
-
-ls -a
 . /venv/bin/activate
 cd /narratave
 
