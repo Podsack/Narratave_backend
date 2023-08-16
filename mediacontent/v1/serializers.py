@@ -85,9 +85,13 @@ class PodcastSeriesDetailSerializer(serpy.Serializer):
     name = serpy.StrField()
     covers = serpy.MethodField()
     type = serpy.MethodField()
+    episodes = serpy.MethodField()
 
     def get_covers(self, obj):
         return CoverArtSerializer(obj.covers.all(), many=True).data
+
+    def get_episodes(self, obj):
+        return PodcastEpisodeSerializer(obj.episodes.all(), many=True).data
 
     def get_type(self, obj):
         return obj._meta.model_name

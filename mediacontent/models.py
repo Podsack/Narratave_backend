@@ -2,6 +2,7 @@ import os
 import uuid
 
 from enum import Enum
+import datetime
 
 from django.db import models
 from django.core.validators import RegexValidator
@@ -94,6 +95,7 @@ class Series(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(to=User, null=True, on_delete=models.SET_NULL)
     published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         abstract = True
@@ -102,6 +104,8 @@ class Series(models.Model):
         return f"{self.name}"
 
     def save(self, *args, **kwargs):
+        if self.published:
+            self.published_at = datetime.datetime.utcnow()
         self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
@@ -157,6 +161,7 @@ class PodcastEpisode(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(blank=True, null=True)
 
     __original_audios = None
 
@@ -180,6 +185,9 @@ class PodcastEpisode(models.Model):
     def save(
         self, force_insert=False, force_update=False, using=None, update_fields=None, *args, **kwargs
     ):
+        if self.published:
+            self.published_at = datetime.datetime.utcnow()
+
         if hasattr(self, 'audio') and self.__original_audios is not None:
             for audio in self.__original_audios.all():
                 audio.delete()
