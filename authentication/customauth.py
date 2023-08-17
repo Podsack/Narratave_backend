@@ -2,6 +2,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
+from authentication.models import UserSession
 from .utils.auth_utils import AuthUtils
 
 User = get_user_model()

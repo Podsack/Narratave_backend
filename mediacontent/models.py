@@ -111,7 +111,7 @@ class Series(models.Model):
 
 
 class PodcastSeries(Series):
-    pass
+    published_episode_count = models.IntegerField(default=0)
 
 
 def audio_upload_dir(instance, file_name):
@@ -150,6 +150,7 @@ class PodcastEpisode(models.Model):
     audios = GenericRelation(Audio, related_query_name='audios', null=True)
     title = models.CharField(max_length=255, null=False)
     slug = models.SlugField(max_length=255, null=False, unique=True)
+    serial_no = models.IntegerField(default=1)
     description = models.TextField(default='')
     duration_in_sec = models.IntegerField(default=0)
     covers = GenericRelation(Cover, null=True, related_name='covers')

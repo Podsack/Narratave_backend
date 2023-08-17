@@ -106,7 +106,7 @@ def login_with_google(request):
 @authentication_classes([CustomAuthBackend])
 def logout(request):
     try:
-        AuthUtils.delete_session(request.user)
+        AuthUtils.delete_session(request)
         return Response(data={'success': True, 'message': 'Logout successfully'})
     except APIException as e:
         return Response(data={'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

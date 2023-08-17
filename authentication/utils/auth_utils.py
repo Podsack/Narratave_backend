@@ -52,10 +52,11 @@ class AuthUtils:
                 token = authorization_header.split(' ')[1]
                 valid_data = AccessToken(token)
                 user_id = valid_data.get('user_id')
-
+                user_session = UserSession.objects.filter(user=user_id).first()
                 # TODO Cache the frequently accessed user
-                if user_id is not None:
+                if user_id is not None and user_session is not None:
                     user = User.objects.filter(id=user_id).first()
+                    request.session = user_session
                 return user
             except ValidationError as v:
                 print("validation error", v)
@@ -95,10 +96,10 @@ class AuthUtils:
 
 
     @staticmethod
-    def delete_session(user):
-        user_session = UserSession.objects.filter(user=user).first()
+    def delete_session(request):
+        user_session = request.session
 
-        if user_session is None:
+        if user_session is None or (request.user.id != request.session.user.id):
             raise APIException("User session doesn't exist")
 
         user_session.delete()

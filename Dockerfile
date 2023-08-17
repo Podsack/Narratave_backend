@@ -33,4 +33,4 @@ COPY --from=builder /app/narratave /narratave
 COPY docker-entrypoint.sh ./
 EXPOSE 8000
 RUN chmod +x ./docker-entrypoint.sh
-CMD ["sh", "./docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "-c", "./docker-entrypoint.sh"]
