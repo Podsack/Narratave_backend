@@ -34,7 +34,10 @@ SECRET_KEY = env("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# CSRF_TRUSTED_ORIGINS = ['https://hip-glasses-heal.loca.lt']
 ALLOWED_HOSTS = ['*']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CORS_ORIGIN_WHITELIST = ['https://*']
 
 
 # Application definition
@@ -49,11 +52,13 @@ INSTALLED_APPS = [
 
     # 3rd party app
     'rest_framework',
+    'django_extensions',
 
     # Project apps
     'authentication',
     'userprofile',
     'mediacontent',
+    'playback'
 ]
 
 MIDDLEWARE = [
@@ -185,7 +190,7 @@ STATICFILES_DIRS = (
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # By default media files are uploaded and fetched from here
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = 'media'
 MEDIA_URL = os.path.join(BASE_DIR, 'media/')
 
 # Default primary key field type

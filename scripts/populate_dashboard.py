@@ -1,10 +1,12 @@
 import os, sys
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Narratave.settings')
 from django.db.models import Q
 
 import django
+
 django.setup()
 
 from mediacontent.constants import SectionEnum
@@ -15,8 +17,8 @@ import random
 
 
 def populate_new_release():
-    podcast_series = PodcastSeries.objects.distinct().filter(published=True, podcastepisode__published=True)\
-        .prefetch_related('podcastepisode_set', 'covers').order_by('created_at')
+    podcast_series = PodcastSeries.objects.distinct().filter(published=True, podcastepisode__published=True) \
+        .prefetch_related('podcastepisode_set').order_by('created_at')[:20]
 
     serialized_data = PodcastSeriesSerializer(podcast_series, many=True).data
     section, created = Section.objects.update_or_create(
@@ -30,7 +32,7 @@ def populate_new_release():
 
 def populate_coming_soon():
     podcast_series = PodcastSeries.objects.distinct().filter(Q(published=False) | Q(podcastepisode__published=False)) \
-        .prefetch_related('podcastepisode_set', 'covers').order_by('created_at')
+        .prefetch_related('podcastepisode_set').order_by('created_at')[:20]
 
     serialized_data = PodcastSeriesSerializer(podcast_series, many=True).data
     section, created = Section.objects.update_or_create(
@@ -69,11 +71,10 @@ def run():
 def populate_recommended_podcast(section):
     podcast_series = PodcastSeries.objects.distinct().filter(published=True,
                                                              podcastepisode__published=True).prefetch_related(
-        'podcastepisode_set', 'covers')
+        'podcastepisode_set')[:20]
 
     podcast_list = list(podcast_series)
     random.shuffle(podcast_list)
-    print(PodcastSeriesSerializer(podcast_series))
 
     section, created = Section.objects.update_or_create(
         title=section,

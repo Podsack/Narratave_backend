@@ -5,6 +5,7 @@ import json
 
 from ..models import Category
 
+
 class JsonFieldSerializer(serpy.Field):
     def to_value(self, value):
         return value
@@ -16,8 +17,8 @@ class JsonFieldSerializer(serpy.Field):
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['display_label', 'name']
-        read_only_fields = ('display_label', 'name')
+        fields = ['id', 'display_label', 'name']
+        read_only_fields = ('id', 'display_label', 'name')
 
 
 class CoverArtSerializer(serpy.Serializer):
@@ -45,59 +46,77 @@ class AudioDataSerializer(serpy.Serializer):
 
 
 class PodcastEpisodeSerializer(serpy.Serializer):
-    audio_data = serpy.MethodField()
+    audios = serpy.MethodField()
     title = serpy.StrField()
     slug = serpy.StrField()
-    description = serpy.StrField()
     duration_in_sec = serpy.IntField()
     covers = serpy.MethodField()
+    episode_no = serpy.IntField()
     featured_artists = serpy.MethodField()
     type = serpy.MethodField()
 
-    def get_audio_data(self, obj):
-        return AudioDataSerializer(self.audios.all(), many=True).data
+    def get_featured_artists(self, obj):
+        return EpisodeArtistSerializer(obj.featured_artists.all(), many=True).data
 
     def get_covers(self, obj):
-        return CoverArtSerializer(obj.covers.all(), many=True).data
+        return [{"url": cover["url"], "bg_color": cover["bg_color"], "dimension": cover["dimension"]} for cover in obj.covers]
 
-    def get_featured_artists(self, obj):
-        return obj.featured_artists.all()
+    def get_audios(self, obj):
+        return [{"url": audio["url"], "format": audio["format"]} for audio in
+                obj.audio_metadata]
 
     def get_type(self, obj):
         return obj._meta.model_name
+
+
+class EpisodeArtistSerializer(serpy.Serializer):
+    id = serpy.IntField()
+    name = serpy.MethodField()
+    role = serpy.StrField()
+
+    def get_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"
 
 
 class PodcastSeriesSerializer(serpy.Serializer):
     id = serpy.IntField()
     name = serpy.StrField()
+    description = serpy.StrField()
     covers = serpy.MethodField()
+    published_episode_count = serpy.IntField()
     type = serpy.MethodField()
-
-    def get_covers(self, obj):
-        return CoverArtSerializer(obj.covers.all(), many=True).data
 
     def get_type(self, obj):
         return obj._meta.model_name
 
-
-class PodcastSeriesDetailSerializer(serpy.Serializer):
-    id = serpy.IntField()
-    name = serpy.StrField()
-    covers = serpy.MethodField()
-    type = serpy.MethodField()
-    episodes = serpy.MethodField()
-
     def get_covers(self, obj):
-        return CoverArtSerializer(obj.covers.all(), many=True).data
-
-    def get_episodes(self, obj):
-        return PodcastEpisodeSerializer(obj.episodes.all(), many=True).data
-
-    def get_type(self, obj):
-        return obj._meta.model_name
+        return [{"url": cover["url"], "bg_color": cover["bg_color"], "dimension": cover["dimension"]} for cover in obj.covers]
 
 
 class SectionSerializer(serpy.Serializer):
     title = serpy.StrField()
     item_count = serpy.IntField()
     data = serpy.Field(attr="contents")
+
+
+class AudioMetaDataSerializer(serpy.Serializer):
+    size_in_kb = serpy.IntField()
+    audio_id = serpy.MethodField()
+    path = serpy.StrField()
+    url = serpy.StrField()
+    format = serpy.StrField()
+
+    def get_audio_id(self, obj):
+        return str(obj.uuid)
+
+
+class CoverMetaDataSerializer(serpy.Serializer):
+    size_in_kb = serpy.IntField()
+    cover_id = serpy.MethodField()
+    bg_color = serpy.StrField()
+    path = serpy.StrField()
+    url = serpy.StrField()
+    dimension = serpy.StrField()
+
+    def get_cover_id(self, obj):
+        return str(obj.uuid)

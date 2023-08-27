@@ -9,7 +9,7 @@ from ..utils.http_clients import IPClient
 class UserPreferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Preference
-        fields = ['country', 'state', 'preferred_app_language', 'preferred_podcast_languages', 'user']
+        fields = ['country', 'state', 'preferred_app_language', 'preferred_podcast_languages', 'preferred_category_ids', 'user']
 
     async def get_by_user_id(self, user_id):
         try:

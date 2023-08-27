@@ -1,17 +1,20 @@
+import logging
 import os
 import uuid
+from django.conf import settings
 
 from enum import Enum
+from typing import AnyStr
 import datetime
 
 from django.db import models
-from django.core.validators import RegexValidator
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.db.models import F
 from django.db.models.functions import Lower
 from django.utils.text import slugify
 
 from authentication.models import User
+
+logger = logging.getLogger("PodcastSeries")
 
 
 class Category(models.Model):
@@ -46,50 +49,18 @@ class Tag(models.Model):
         return f"{self.name}"
 
 
-def cover_upload_dir(instance, file_name):
-    return os.path.join("uploads", "covers", instance.content_type.model, str(instance.object_id), str(instance.dim),
-                        file_name)
-
-
-COLOR_CODE_VALIDATOR = RegexValidator(
-    regex=r'^#([A-Fa-f0-9]{6})$',
-    message='Field must contain only letters and numbers.',
-)
-
-
 class CoverSize(Enum):
     LARGE = 320
     MEDIUM = 160
     THUMB = 64
 
 
-class Cover(models.Model):
-    DIMENSIONS = [('LARGE', '320px'), ('MEDIUM', '160px'), ('THUMB', '64px'), ('ORIGINAL', '')]
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    image = models.ImageField(upload_to=cover_upload_dir)
-    bg_color = models.CharField(max_length=7, default="#000000", validators=[COLOR_CODE_VALIDATOR])
-    dim = models.CharField(max_length=20, choices=DIMENSIONS)
-    height = models.SmallIntegerField(default=0)
-    width = models.SmallIntegerField(default=0)
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.BigIntegerField()
-    content = GenericForeignKey('content_type', 'object_id')
-
-    class Meta:
-        verbose_name = "cover"
-        verbose_name_plural = "covers"
-        indexes = [
-            models.Index(fields=["content_type", "object_id"])
-        ]
-
-
 class Series(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(default='', max_length=128)
     slug = models.SlugField(max_length=128, unique=True)
-
-    covers = GenericRelation(Cover)
+    description = models.TextField(max_length=255, blank=True, default='')
+    covers = models.JSONField(null=True)
     # artist = models.CharField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -97,63 +68,60 @@ class Series(models.Model):
     published = models.BooleanField(default=False)
     published_at = models.DateTimeField(blank=True, null=True)
 
+    _published = None
+
     class Meta:
         abstract = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._published = self.published
 
     def __str__(self):
         return f"{self.name}"
 
     def save(self, *args, **kwargs):
-        if self.published:
+        if self._published != self.published and self.published:
             self.published_at = datetime.datetime.utcnow()
+
         self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+        self._published = self.published
 
 
 class PodcastSeries(Series):
-    published_episode_count = models.IntegerField(default=0)
+    published_episode_count = models.IntegerField(default=0, editable=False)
+
+    @classmethod
+    def update_series(cls, podcast_series_id, count_change=None):
+        if count_change is not None and podcast_series_id is not None:
+            '''
+            F is used for lock the row in case of concurrent updates
+            '''
+            try:
+                PodcastSeries.objects.filter(pk=podcast_series_id)\
+                    .update(published_episode_count=F('published_episode_count') + count_change)
+            except Exception as e:
+                logger.exception("Updating series count exception %s", str(e))
+            # with transaction.atomic():
+            #     podcast_series_record = PodcastSeries.objects.select_for_update().get(pk=podcast_series_id)
+            #     podcast_series_record.published_episode_count += count_change
+            #     podcast_series_record.save()
 
 
-def audio_upload_dir(instance, file_name):
-    if instance.content_type is not None:
-        return os.path.join("uploads", "audios", instance.content_type.model, str(instance.object_id), str(instance.bit_rate),
-                            str(file_name))
-    else:
-        return os.path.join("uploads", "audios", str(instance.bit_rate), file_name)
-
-
-class Audio(models.Model):
-    BITRATE_CHOICES = [
-        (32, '32 Kbps'),
-        (64, '64 Kbps'),
-        (128, '128 Kbps'),
-    ]
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    file = models.FileField(upload_to=audio_upload_dir)
-    bit_rate = models.SmallIntegerField(choices=BITRATE_CHOICES)
-    format = models.CharField(default='', max_length=5)
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
-    object_id = models.BigIntegerField(null=True, blank=True)
-    size_in_kb = models.DecimalField(decimal_places=2, max_digits=10)
-    content = GenericForeignKey('content_type', 'object_id')
-
-    class Meta:
-        verbose_name = "audio"
-        verbose_name_plural = "audios"
-        indexes = [
-            models.Index(fields=["content_type", "object_id"])
-        ]
+# class PodcastEpisodeManager(models.Manager):
+#     def get_default_values(self):
+#         return self.get_queryset().values('id', 'title', 'audio_data', 'covers', 'episode_no', 'duration_in_sec')
 
 
 class PodcastEpisode(models.Model):
     id = models.BigAutoField(primary_key=True)
-    audios = GenericRelation(Audio, related_query_name='audios', null=True)
+    audio_metadata = models.JSONField(null=True)
     title = models.CharField(max_length=255, null=False)
     slug = models.SlugField(max_length=255, null=False, unique=True)
-    serial_no = models.IntegerField(default=1)
-    description = models.TextField(default='')
+    episode_no = models.IntegerField(default=1, db_index=True)
     duration_in_sec = models.IntegerField(default=0)
-    covers = GenericRelation(Cover, null=True, related_name='covers')
+    covers = models.JSONField(null=True)
     featured_artists = models.ManyToManyField(to=User, related_name='featured_artists')
     categories = models.ManyToManyField(to=Category)
     language = models.CharField(max_length=3, db_index=True)
@@ -164,7 +132,10 @@ class PodcastEpisode(models.Model):
     published = models.BooleanField(default=False)
     published_at = models.DateTimeField(blank=True, null=True)
 
-    __original_audios = None
+    # objects = PodcastEpisodeManager
+
+    _original_audios = None
+    _published = None
 
     class Meta:
         verbose_name = 'podcast_episode'
@@ -178,24 +149,39 @@ class PodcastEpisode(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__original_audios = self.audios
+        self._original_audios = self.audio_metadata
+        self._published = self.published
 
     def __str__(self):
         return self.title
 
     def save(
-        self, force_insert=False, force_update=False, using=None, update_fields=None, *args, **kwargs
+            self, force_insert=False, force_update=False, using=None, *args, **kwargs
     ):
         if self.published:
             self.published_at = datetime.datetime.utcnow()
 
-        if hasattr(self, 'audio') and self.__original_audios is not None:
-            for audio in self.__original_audios.all():
+        if hasattr(self, 'audio') and self._original_audios is not None:
+            for audio in self._original_audios.all():
                 audio.delete()
+
+        parent_episode_count = None
+        if self.pk is None and self.published:
+            parent_episode_count = 1
+        elif self.pk is not None and self._published != self.published:
+            parent_episode_count = 1 if self.published else -1
 
         self.slug = slugify(f"{self.podcast_series.name} {self.title}")
         super().save(*args, **kwargs)
-        self.__original_audios = self.audios
+
+        PodcastSeries.update_series(podcast_series_id=self.podcast_series.pk, count_change=parent_episode_count)
+        # Repopulate the current values
+        self._published = self.published
+        self._original_audios = self.audio_metadata
+
+    @classmethod
+    def get_default_values(cls):
+        cls
 
 
 class Section(models.Model):
@@ -210,3 +196,84 @@ class Section(models.Model):
 
     def __str__(self):
         return f"{self.title}"
+
+
+class FileMetadata:
+    size_in_kb = 0
+    uuid = None
+    path = None
+    url = None
+
+    def __init__(self, *args, **kwargs):
+        self.uuid = uuid.uuid4()
+        if 'size_in_kb' in kwargs:
+            self.size_in_kb = kwargs['size_in_kb']
+
+    class Meta:
+        abstract = True
+
+
+class AudioMetadata(FileMetadata):
+    format: AnyStr = None
+
+    def __init__(self, bitrate_in_kbps, output_ext, file, obj_type, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if output_ext is not None:
+            self.format = f"{output_ext.upper()}_{bitrate_in_kbps}"
+
+        if file is not None:
+            directory_path = self.get_directory(obj_type=obj_type)
+            os.makedirs(directory_path, exist_ok=True)
+
+            file_path = os.path.join(directory_path, file.name)
+
+            with open(file_path, 'wb') as destination:
+                for chunk in file.chunks():
+                    destination.write(chunk)
+
+            self.path = file_path
+            self.url = self.get_url()
+
+    def get_directory(self, obj_type):
+        output_path = os.path.join(settings.MEDIA_ROOT, obj_type, "audios", self.format, str(self.uuid))
+        return output_path
+
+    def get_url(self):
+        url = os.path.join(settings.BASE_DIR, self.path)
+        return url
+
+
+class ImageMetadata(FileMetadata):
+    dimension: AnyStr = None
+    bg_color = None
+    mime_type = None
+
+    def __init__(self, dimension, file, obj_type, mime_type, bg_color, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.bg_color = bg_color
+        self.mime_type = mime_type
+
+        if dimension is not None:
+            self.dimension = dimension
+
+        if file is not None:
+            directory_path = self.get_directory(obj_type=obj_type)
+            os.makedirs(directory_path, exist_ok=True)
+
+            file_path = os.path.join(directory_path, file.name)
+
+            with open(file_path, 'wb') as destination:
+                for chunk in file.chunks():
+                    destination.write(chunk)
+
+            self.path = file_path
+            self.url = self.get_url()
+
+    def get_directory(self, obj_type):
+        output_path = os.path.join(settings.MEDIA_ROOT, obj_type, "covers", self.dimension, str(self.uuid))
+        return output_path
+
+    def get_url(self):
+        url = os.path.join(settings.BASE_DIR, self.path)
+        return url

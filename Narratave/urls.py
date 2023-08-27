@@ -25,7 +25,8 @@ urlpatterns = [
     path('api/', include('rest_framework.urls')),
     path('v1/auth/', include('authentication.v1.urls')),
     path('v1/preferences/', include('userprofile.v1.urls')),
-    path('v1/media/', include('mediacontent.v1.urls'))
+    path('v1/media/', include('mediacontent.v1.urls')),
+    path('v1/playback/', include('playback.v1.urls')),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

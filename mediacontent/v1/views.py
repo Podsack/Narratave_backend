@@ -1,12 +1,12 @@
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
+
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from asgiref.sync import sync_to_async
 
 from authentication.customauth import CustomAuthBackend, IsConsumer
-from .serializers import CategorySerializer, SectionSerializer
-from ..models import Category, Section, PodcastSeries
+from .serializers import CategorySerializer, SectionSerializer, PodcastSeriesSerializer, PodcastEpisodeSerializer
+from ..models import Category, Section, PodcastSeries, PodcastEpisode
 
 
 @api_view(['GET'])
@@ -35,17 +35,39 @@ def get_customer_history(request):
     serializer = SectionSerializer(sections)
     return Response(data={'content_categories': serializer.data}, status=status.HTTP_200_OK)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
-def get_podcast_series_by_id(request):
-    podcast_series_id = request.data.get('podcast_series_id')
-    podcast_series = PodcastSeries.objects.filter(id=podcast_series_id).prefetch_related('podcastepisode_set').first()
+def get_podcast_series_by_id(request, podcast_series_id):
+    podcast_series = PodcastSeries.objects.filter(id=podcast_series_id).first()
+
+    if podcast_series is None:
+        return Response(data={'message': 'Podcast series id not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(data=PodcastSeriesSerializer(podcast_series).data, status=status.HTTP_200_OK)
 
 
-
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
-def save_playback_history(request):
-    pass
+def get_episodes_by_podcast(request, podcast_series_id):
+    from_episode = request.GET.get('from')
+    page_size = request.GET.get('page_size')
+
+    if (from_episode is None or not from_episode.isdigit()) or (page_size is None or not page_size.isdigit()):
+        return Response(data={"message": "Invalid episode range"}, status=status.HTTP_400_BAD_REQUEST)
+
+    to_episode = int(from_episode) - int(page_size)
+
+    podcast_episodes = PodcastEpisode.objects\
+        .filter(podcast_series=podcast_series_id, published=True, episode_no__lte=int(from_episode), episode_no__gt=to_episode) \
+        .prefetch_related('featured_artists')\
+        .order_by('-episode_no')
+
+
+    try:
+        serialized_podcast_episodes = PodcastEpisodeSerializer(podcast_episodes, many=True)
+        return Response(data={'episodes': serialized_podcast_episodes.data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={"message": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

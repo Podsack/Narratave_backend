@@ -3,9 +3,13 @@ import io
 import os
 import datetime
 from django.core.files import File
+from django.db.models import F
 
 from PIL import Image
 from pydub import AudioSegment
+
+from .models import PodcastEpisode
+from .v1.serializers import PodcastEpisodeSerializer
 
 
 class ImageUtil:
@@ -99,13 +103,13 @@ def convert_audio_in_aac(segmented_audio, bitrate, file_name):
     if bitrate is None:
         raise ValueError("Parameters are not defined")
 
-    converted_format = ".aac"
+    converted_format = "aac"
     ts = int(datetime.datetime.utcnow().timestamp())
-    out_file_name = f"{file_name}_{ts}_{bitrate}_{converted_format}"
+    out_file_name = f"{file_name}_{ts}_{bitrate}.{converted_format}"
     new_audio = segmented_audio.export(format="adts", bitrate=f"{bitrate}k")
     audio_duration = segmented_audio.duration_seconds
     converted_file = File(file=new_audio, name=out_file_name)
-    file_size = converted_file.size/1000
+    file_size = converted_file.size/1024
 
     return file_size, converted_file, converted_format, audio_duration
 
