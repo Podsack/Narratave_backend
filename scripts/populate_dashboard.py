@@ -18,7 +18,7 @@ import random
 
 def populate_new_release():
     podcast_series = PodcastSeries.objects.distinct().filter(published=True, podcastepisode__published=True) \
-        .prefetch_related('podcastepisode_set').order_by('created_at')[:20]
+        .prefetch_related('podcastepisode_set').order_by('-published_at')[:20]
 
     serialized_data = PodcastSeriesSerializer(podcast_series, many=True).data
     section, created = Section.objects.update_or_create(
@@ -32,7 +32,7 @@ def populate_new_release():
 
 def populate_coming_soon():
     podcast_series = PodcastSeries.objects.distinct().filter(Q(published=False) | Q(podcastepisode__published=False)) \
-        .prefetch_related('podcastepisode_set').order_by('created_at')[:20]
+        .prefetch_related('podcastepisode_set').order_by('-published_at')[:20]
 
     serialized_data = PodcastSeriesSerializer(podcast_series, many=True).data
     section, created = Section.objects.update_or_create(
@@ -45,12 +45,13 @@ def populate_coming_soon():
 
 
 def populate_history():
+    HISTORY_URL = '/v1/playback/histories'
     section, created = Section.objects.update_or_create(
         title=SectionEnum.CONTINUE_WHERE_YOU_LEFT.value,
         defaults={
             'title': SectionEnum.CONTINUE_WHERE_YOU_LEFT.value,
             'item_count': 0,
-            'section_url': ''
+            'section_url': HISTORY_URL
         })
 
 

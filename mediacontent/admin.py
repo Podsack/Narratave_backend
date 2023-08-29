@@ -67,7 +67,8 @@ class PodcastSeriesAdmin(admin.ModelAdmin):
         covers = model.covers
         urls = []
         if covers is not None:
-            urls = [f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src={cover["url"]}/></a>' if cover["url"] is not None else ''
+            urls = [f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src={cover["url"]}/></a>' if cover[
+                                                                                                                  "url"] is not None else ''
                     for cover in covers]
         return format_html('<br>'.join(urls))
 
@@ -113,7 +114,6 @@ class PodcastEpisodeForm(forms.ModelForm):
         return cleaned_data
 
 
-
 class PodcastEpisodeAdmin(admin.ModelAdmin):
     form = PodcastEpisodeForm
     exclude = ('duration_in_sec', 'audio_metadata', 'covers')
@@ -127,17 +127,19 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
         covers = model.covers
         urls = []
         if covers is not None:
-            urls = [f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src={cover["url"]}/></a>' if "url" in cover else ''
-                    for cover in covers]
+            urls = [
+                f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src={cover["url"]}/></a>' if "url" in cover else ''
+                for cover in covers]
         return format_html('<br>'.join(urls))
 
     def audio_set(self, model):
         audios = model.audio_metadata
         urls = []
         if audios is not None:
-            urls = [f'<div>{audio["format"]} Kbps, size: {audio["size_in_kb"]} KB</div><audio controls preload="none"><source src="{audio["url"]}"/></audio>'
-                    if "url" in audio and "format" in audio else ''
-                    for audio in audios]
+            urls = [
+                f'<div>{audio["format"]} Kbps, size: {audio["size_in_kb"]} KB</div><audio controls preload="none"><source src="{audio["url"]}"/></audio>'
+                if "url" in audio and "format" in audio else ''
+                for audio in audios]
         return format_html('<br>'.join(urls))
 
     def duration(self, model):

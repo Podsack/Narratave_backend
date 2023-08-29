@@ -1,6 +1,6 @@
 from django.dispatch import receiver
 from django.db import transaction
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, post_init
 
 from .models import PodcastSeries, CoverSize, PodcastEpisode
 from .utils import ImageUtil
@@ -34,5 +34,5 @@ def assign_episode_no(sender, instance, *args, **kwargs):
     if instance._state.adding and instance.episode_no == 1:
         with transaction.atomic():
             total_episode = PodcastEpisode.objects.filter(id=instance.podcast_series.id).count()
-            instance.episode_no = total_episode+1
+            instance.episode_no = total_episode + 1
 

@@ -1,5 +1,3 @@
-from typing import List, Any
-
 from django.db import models
 from django.db.models import QuerySet
 from datetime import datetime, timedelta

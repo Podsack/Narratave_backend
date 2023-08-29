@@ -52,6 +52,8 @@ def save_playback_history(request):
 def get_history_by_user(request):
     page_size = request.GET.get('page_size') or 20
     last_played = request.GET.get('last_played')
+    include_artist = request.GET.get('include_artist')
+    include_series = request.GET.get('include_series')
 
     content_histories = ContentHistory.get_histories_by_user(user=request.user, months_ago=3,
                                                              last_played_time=last_played, page_size=page_size)
@@ -73,7 +75,7 @@ def get_history_by_user(request):
         model_content_type = ContentType.objects.get_for_id(model_type)
         model_class = model_content_type.model_class()
         model_id_list = list(model_ids_mapping[model_type].keys())
-        contents = get_generic_content_value(model_class=model_class, id_list=model_id_list)
+        contents = get_generic_content_value(model_class=model_class, id_list=model_id_list, include_artist=include_artist, include_series=include_series)
 
         for content in contents:
             model_ids_mapping[model_type][content['id']] = content

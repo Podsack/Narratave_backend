@@ -75,7 +75,11 @@ class Series(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._published = self.published
+        '''
+        self._published = self.published can cause infinite loop when calling only or defer queryset 
+        '''
+        if 'published' not in self.get_deferred_fields():
+            setattr(self, '_published', getattr(self, 'published'))
 
     def __str__(self):
         return f"{self.name}"
@@ -132,9 +136,6 @@ class PodcastEpisode(models.Model):
     published = models.BooleanField(default=False)
     published_at = models.DateTimeField(blank=True, null=True)
 
-    # objects = PodcastEpisodeManager
-
-    _original_audios = None
     _published = None
 
     class Meta:
@@ -149,8 +150,11 @@ class PodcastEpisode(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._original_audios = self.audio_metadata
-        self._published = self.published
+        '''
+        self._published = self.published can cause infinite loop when calling only or defer queryset 
+        '''
+        if 'published' not in self.get_deferred_fields():
+            setattr(self, '_published', getattr(self, 'published'))
 
     def __str__(self):
         return self.title
@@ -160,10 +164,6 @@ class PodcastEpisode(models.Model):
     ):
         if self.published:
             self.published_at = datetime.datetime.utcnow()
-
-        if hasattr(self, 'audio') and self._original_audios is not None:
-            for audio in self._original_audios.all():
-                audio.delete()
 
         parent_episode_count = None
         if self.pk is None and self.published:
@@ -177,11 +177,6 @@ class PodcastEpisode(models.Model):
         PodcastSeries.update_series(podcast_series_id=self.podcast_series.pk, count_change=parent_episode_count)
         # Repopulate the current values
         self._published = self.published
-        self._original_audios = self.audio_metadata
-
-    @classmethod
-    def get_default_values(cls):
-        cls
 
 
 class Section(models.Model):
