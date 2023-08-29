@@ -131,6 +131,7 @@ class PodcastEpisode(models.Model):
     language = models.CharField(max_length=3, db_index=True)
     tags = models.ManyToManyField(to=Tag)
     podcast_series = models.ForeignKey(to=PodcastSeries, on_delete=models.CASCADE, null=False)
+    play_count = models.BigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     published = models.BooleanField(default=False)
@@ -177,6 +178,13 @@ class PodcastEpisode(models.Model):
         PodcastSeries.update_series(podcast_series_id=self.podcast_series.pk, count_change=parent_episode_count)
         # Repopulate the current values
         self._published = self.published
+
+    @classmethod
+    async def increase_play_count(cls, instance_id):
+        try:
+            await cls.objects.filter(pk=instance_id).aupdate(play_count=F('play_count') + 1)
+        except Exception as e:
+            logger.exception("Updating play count exception %s", str(e))
 
 
 class Section(models.Model):

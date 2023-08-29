@@ -22,11 +22,18 @@ class ContentHistory(models.Model):
         verbose_name_plural = 'content_histories'
 
     @classmethod
-    def get_histories_by_user(cls, user, months_ago, last_played_time, page_size=20) -> QuerySet:
+    def get_histories_by_user(cls, user, months_ago: int, last_played_time: str, page_size: str | int = 20) -> QuerySet:
+        page_size = page_size or 20
         current_time = datetime.today()
-        last_played = last_played_time or current_time
+        last_played = datetime.strptime(last_played_time, "%Y-%m-%dT%H:%M:%S.%fZ") if last_played_time else current_time
         months_previous_date = current_time - timedelta(days=(months_ago * 365 / 12))
 
+        try:
+            page_size = int(page_size)
+        except ValueError as e:
+            raise ValueError("Page size should be an integer")
+
         return cls.objects.filter(user=user, last_played_at__lt=last_played, last_played_at__gte=months_previous_date) \
-                            .order_by("-last_played_at") \
-                            .values("content_type", "object_id", "content_progress", "last_played_at")[:page_size]
+                   .order_by("-last_played_at")[:page_size] \
+            .values("content_type", "object_id", "content_progress", "last_played_at")
+
