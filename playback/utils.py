@@ -12,7 +12,7 @@ def get_generic_content_value(model_class, id_list, include_artist=False, includ
     prefetch_query_mapping = {}
 
     if model_class is PodcastEpisode:
-        only_fields = ['id', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no']
+        only_fields = ['id', 'slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no']
 
         if include_artist:
             prefetch_query_mapping['featured_artists'] = User.objects.only('id', 'first_name', 'last_name', 'profile_picture', 'username')

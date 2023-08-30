@@ -27,6 +27,7 @@ class PodcastEpisodeSerializer(serpy.Serializer):
     # MODEL_NAME = PodcastEpisode.
     id = serpy.Field()
     audios = serpy.MethodField()
+    slug = serpy.StrField()
     title = serpy.StrField()
     duration_in_sec = serpy.IntField()
     covers = serpy.MethodField()

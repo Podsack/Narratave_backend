@@ -40,7 +40,9 @@ def get_customer_history(request):
 @permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_podcast_series_by_id(request, podcast_series_id):
-    podcast_series = PodcastSeries.objects.filter(id=podcast_series_id).first()
+    podcast_series = PodcastSeries.objects.filter(id=podcast_series_id)\
+        .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])\
+        .first()
 
     if podcast_series is None:
         return Response(data={'message': 'Podcast series id not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -51,20 +53,37 @@ def get_podcast_series_by_id(request, podcast_series_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
+def get_podcast_episode_by_slug(request, podcast_episode_slug):
+    podcast_episode = PodcastEpisode.objects.filter(id=podcast_episode_slug).first()
+
+    if podcast_episode is None:
+        return Response(data={'message': 'Podcast series id not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(data=PodcastEpisodeSerializer(podcast_episode).data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([CustomAuthBackend])
 def get_episodes_by_podcast(request, podcast_series_id):
     from_episode = request.GET.get('from')
     page_size = request.GET.get('page_size')
+    order = request.GET.get('order') or 'DESC'
 
     if (from_episode is None or not from_episode.isdigit()) or (page_size is None or not page_size.isdigit()):
         return Response(data={"message": "Invalid episode range"}, status=status.HTTP_400_BAD_REQUEST)
 
-    to_episode = int(from_episode) - int(page_size)
+    if order is not None and order not in {'ASC', 'DESC'}:
+        return Response(data={"message": "Order should be one of ASC or DESC"}, status=status.HTTP_400_BAD_REQUEST)
+
+    to_episode = int(from_episode) + (-1 if order is 'DESC' else 1) * int(page_size)
+
+    lower_limit, upper_limit = (to_episode, int(from_episode)) if order is 'DESC' else (int(from_episode), to_episode)
 
     podcast_episodes = PodcastEpisode.objects\
-        .filter(podcast_series=podcast_series_id, published=True, episode_no__lte=int(from_episode), episode_no__gt=to_episode) \
-        .prefetch_related('featured_artists')\
-        .order_by('-episode_no')
-
+        .filter(podcast_series=podcast_series_id, published=True, episode_no__lte=upper_limit, episode_no__gt=lower_limit) \
+        .prefetch_related('featured_artists') \
+        .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no']) \
+        .order_by('-episode_no' if order is 'DESC' else 'episode_no')
 
     try:
         serialized_podcast_episodes = PodcastEpisodeSerializer(podcast_episodes, many=True)
