@@ -41,7 +41,7 @@ def get_customer_history(request):
 @authentication_classes([CustomAuthBackend])
 def get_podcast_series_by_id(request, podcast_series_id):
     podcast_series = PodcastSeries.objects.filter(id=podcast_series_id)\
-        .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])\
+        .only(*['id', 'name', 'description', 'published_episode_count', 'published', 'covers'])\
         .first()
 
     if podcast_series is None:
@@ -60,6 +60,7 @@ def get_podcast_episode_by_slug(request, podcast_episode_slug):
         return Response(data={'message': 'Podcast series id not found'}, status=status.HTTP_404_NOT_FOUND)
 
     return Response(data=PodcastEpisodeSerializer(podcast_episode).data, status=status.HTTP_200_OK)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -80,7 +81,7 @@ def get_episodes_by_podcast(request, podcast_series_id):
     lower_limit, upper_limit = (to_episode, int(from_episode)) if order is 'DESC' else (int(from_episode), to_episode)
 
     podcast_episodes = PodcastEpisode.objects\
-        .filter(podcast_series=podcast_series_id, published=True, episode_no__lte=upper_limit, episode_no__gt=lower_limit) \
+        .filter(podcast_series=podcast_series_id, episode_no__lte=upper_limit, episode_no__gt=lower_limit, published=True,) \
         .prefetch_related('featured_artists') \
         .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no']) \
         .order_by('-episode_no' if order is 'DESC' else 'episode_no')

@@ -3,7 +3,7 @@ from .models import ContentHistory
 
 
 class ContentHistoryAdmin(admin.ModelAdmin):
-    list_display=('object_id', 'content_object', 'user', 'content_progress', 'last_played_at')
+    list_display=('object_id', 'content_object', 'user', 'last_played_at')
     ordering = ('-last_played_at', )
 
 

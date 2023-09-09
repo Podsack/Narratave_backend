@@ -3,13 +3,10 @@ import io
 import os
 import datetime
 from django.core.files import File
-from django.db.models import F
+import uuid
 
 from PIL import Image
 from pydub import AudioSegment
-
-from .models import PodcastEpisode
-from .v1.serializers import PodcastEpisodeSerializer
 
 
 class ImageUtil:
@@ -89,7 +86,8 @@ class ImageUtil:
         imageTemproaryResized.save(file, self._conversion_format)
         file.seek(0)
         size = sys.getsizeof(file)
-        file_name, file_extension = os.path.splitext(self.name)
+        _, file_extension = os.path.splitext(self.name)
+        file_name = uuid.uuid4().hex
         output_file_name = f"{file_name}.{self._conversion_format}"
         return file, output_file_name, content_type, size
 
@@ -118,6 +116,7 @@ def get_segmented_audio(audio_file):
     if audio_file is None:
         raise ValueError("Parameters are not defined")
 
-    file_name, file_extension = os.path.splitext(audio_file.name)
+    _, file_extension = os.path.splitext(audio_file.name)
+    file_name = uuid.uuid4().hex
     curr_audio = AudioSegment.from_file(file=audio_file, format=file_extension.replace('.', ''))
     return file_name, curr_audio

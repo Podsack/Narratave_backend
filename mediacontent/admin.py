@@ -97,14 +97,27 @@ class PodcastSeriesAdmin(admin.ModelAdmin):
 
 
 class PodcastEpisodeForm(forms.ModelForm):
+    # categories_list =  Category.objects.filter(is_active=True)
+
     image = forms.ImageField(label='Cover Image', required=False)
     audio = forms.FileField(label='audio', required=False)
     language = forms.ChoiceField(choices=lambda: lang_choices())
+    tags = forms.CharField(
+        max_length=500,  # Set your maximum length here
+        widget=forms.TextInput(attrs={'maxlength': 500}),  # Set the max length attribute for the widget
+    )
+    selected_categories = forms.MultipleChoiceField(
+        choices=lambda: [(category.name, category.name) for category in Category.objects.filter(is_active=True)],
+        widget=forms.CheckboxSelectMultiple,
+        required=False
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in ['tags', 'categories']:
-            self.fields[field].required = False
+        instance = kwargs.get('instance')
+        if instance is not None:
+            categories = instance.categories
+            self.fields['selected_categories'].initial = categories.split(',') if categories is not None else []
 
     def clean(self):
         cleaned_data = super().clean()
@@ -116,11 +129,11 @@ class PodcastEpisodeForm(forms.ModelForm):
 
 class PodcastEpisodeAdmin(admin.ModelAdmin):
     form = PodcastEpisodeForm
-    exclude = ('duration_in_sec', 'audio_metadata', 'covers')
+    exclude = ('duration_in_sec', 'audio_metadata', 'covers', 'categories',)
     ordering = ('created_at',)
     list_filter = ('podcast_series', 'language', 'tags', 'categories',)
     search_fields = ('title',)
-    filter_horizontal = ('featured_artists', 'tags', 'categories',)
+    filter_horizontal = ('featured_artists',)
     prepopulated_fields = {'slug': ('title', 'podcast_series',), }
 
     def cover_set(self, model):
@@ -161,6 +174,8 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
         # Get the value of the extra parameter from the form
         image = form.cleaned_data.get('image')
         audio: File = form.cleaned_data.get('audio')
+        form_categories = form.cleaned_data.get('selected_categories')
+        obj.categories = ','.join(form_categories)
         # Set the value of the extra parameter in the model instance
         obj.image = image
 

@@ -1,30 +1,43 @@
 import serpy
 from rest_framework import serializers
+import asyncio
 
 from mediacontent.models import PodcastEpisode, F
 from ..constants import MediaTypes
+from ..models import ContentHistory
 
 
 class PlaybackHistoryRequestSerializer(serializers.Serializer):
     _content_types = MediaTypes.list()
-    episode_id = serializers.IntegerField()
-    content_progress = serializers.IntegerField()
-    content_type = serializers.CharField()
+    episode_id = serializers.IntegerField(allow_null=False)
+    start = serializers.IntegerField(allow_null=False)
+    end = serializers.IntegerField(allow_null=False)
+    object_type = serializers.CharField()
 
-    def validate_content_type(self, value):
+    def validate_object_type(self, value):
         if value not in self._content_types:
             raise serializers.ValidationError(f"Content type be one of: {', '.join(self._content_types)}")
         return value
 
-    def validate_content_progress(self, value):
-        if self.initial_data.get('content_type') == MediaTypes.PODCAST.name and value < 15:
-            raise serializers.ValidationError("Cannot be saved without minimum progress")
+    def validate(self, data):
+        start = data.get('start')
+        end = data.get('end')
 
-        return value
+        # Add your custom validation logic here.
+        # For example, checking that field1 and field2 meet a certain condition.
+        if end - start < 15:
+            raise serializers.ValidationError("Total content progress should be atleast 15 seconds")
+
+        return data
+
+    async def async_save(self, **kwargs):
+        self.validated_data.pop('object_type')
+        episode_id = self.validated_data.pop('episode_id')
+        res = await ContentHistory.objects.acreate(object_id=episode_id, **self.validated_data, **kwargs)
+        return res
 
 
 class PodcastEpisodeSerializer(serpy.Serializer):
-    # MODEL_NAME = PodcastEpisode.
     id = serpy.Field()
     audios = serpy.MethodField()
     slug = serpy.StrField()
@@ -87,7 +100,8 @@ class EpisodeSeriesSerializer(serpy.Serializer):
 
 
 class PlaybackHistorySerializer(serpy.Serializer):
-    content_progress = serpy.IntField()
+    start = serpy.IntField()
+    end = serpy.IntField()
     last_played_at = serpy.Field()
     content_object = serpy.Field()
     content = serpy.Field()

@@ -20,27 +20,22 @@ from .serializers import PlaybackHistoryRequestSerializer
 @authentication_classes([CustomAuthBackend])
 def save_playback_history(request):
     episode_id = request.data.get('episode_id')
-    content_progress = request.data.get('content_progress')
-    content_type = request.data.get('content_type')
-    content_type_model = None
+    start = request.data.get('start')
+    end = request.data.get('end')
+    object_type = request.data.get('object_type')
+    content_type = None
+
     request_serializer = PlaybackHistoryRequestSerializer(data=request.data)
 
     try:
         if request_serializer.is_valid(raise_exception=True):
-            if content_type == MediaTypes.PODCAST.name:
-                content_type_model = ContentType.objects.get_for_model(MediaTypes.PODCAST.value)
+            if object_type == MediaTypes.PODCAST.name:
+                content_type = ContentType.objects.get_for_model(MediaTypes.PODCAST.value)
 
-            if content_type_model is not None:
-                ContentHistory.objects.update_or_create(
-                    content_type=content_type_model,
-                    object_id=episode_id,
-                    user=request.user,
-                    defaults={
-                        'content_progress': content_progress
-                    }
-                )
+            if content_type is not None:
+                asyncio.run(request_serializer.async_save(user=request.user, content_type=content_type))
 
-                if content_type == MediaTypes.PODCAST.name:
+                if object_type == MediaTypes.PODCAST.name:
                     asyncio.run(PodcastEpisode.increase_play_count(instance_id=episode_id))
 
                 return Response(data={'success': True}, status=status.HTTP_200_OK)
@@ -62,7 +57,7 @@ def get_history_by_user(request):
     include_series = request.GET.get('include_series')
 
     try:
-        content_histories = ContentHistory.get_histories_by_user(user=request.user, months_ago=3,
+        content_histories = ContentHistory.get_histories_by_user(user_id=request.user.id, months_ago=3,
                                                                  last_played_time=last_played, page_size=page_size)
 
         model_ids_mapping: Dict[int, Dict[int, Any]] = {}
@@ -70,13 +65,13 @@ def get_history_by_user(request):
         prev_last_played_at = None
 
         for history in content_histories:
-            content_type = history['content_type']
-            prev_last_played_at = history["last_played_at"] if prev_last_played_at is None else min(history["last_played_at"], prev_last_played_at)
+            content_type = history.content_type_id
+            prev_last_played_at = history.last_played_at if prev_last_played_at is None else min(history.last_played_at, prev_last_played_at)
 
             if content_type not in model_ids_mapping:
                 model_ids_mapping[content_type] = {}
-            if history['object_id'] not in model_ids_mapping[content_type]:
-                model_ids_mapping[content_type][history['object_id']] = None
+            if history.object_id not in model_ids_mapping[content_type]:
+                model_ids_mapping[content_type][history.object_id] = None
 
         for model_type in model_ids_mapping:
             model_content_type = ContentType.objects.get_for_id(model_type)
@@ -92,3 +87,7 @@ def get_history_by_user(request):
         return Response(data=hist_result, status=status.HTTP_200_OK)
     except Exception as e:
         return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+async def run_coroutine(*args):
+    return asyncio.gather(*args)

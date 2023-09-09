@@ -58,7 +58,8 @@ INSTALLED_APPS = [
     'authentication',
     'userprofile',
     'mediacontent',
-    'playback'
+    'playback',
+    'search'
 ]
 
 MIDDLEWARE = [

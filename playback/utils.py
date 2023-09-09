@@ -34,11 +34,16 @@ def get_generic_content_value(model_class, id_list, include_artist=False, includ
         return ValueError("Generic model value not found")
 
 
-def include_content(history_data, model_ids_mapping):
-    content_type_id = history_data['content_type']
-    object_id = history_data['object_id']
-    history_data.pop('content_type')
-    history_data.pop('object_id')
+def include_content(data, model_ids_mapping):
+    history_data = {}
+    content_type_id = data.content_type_id
+    object_id = data.object_id
+    history_data['start'] = data.start
+    history_data['end'] = data.end
+    history_data['played_at'] = data.last_played_at
+
+    # history_data.pop('content_type_id')
+    # history_data.pop('object_id')
     history_data['content'] = model_ids_mapping[content_type_id][object_id]
     return history_data
 

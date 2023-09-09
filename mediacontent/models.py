@@ -8,8 +8,8 @@ from typing import AnyStr
 import datetime
 
 from django.db import models
-from django.db.models import F
-from django.db.models.functions import Lower
+from django.db.models import F, Index, Q
+from django.db.models.functions import Lower, Upper
 from django.utils.text import slugify
 
 from authentication.models import User
@@ -48,6 +48,10 @@ class Tag(models.Model):
     def __str__(self):
         return f"{self.name}"
 
+    def save(self, *args, **kwargs):
+        self.name = slugify(self.name)
+        super().save(*args, **kwargs)
+
 
 class CoverSize(Enum):
     LARGE = 320
@@ -61,7 +65,6 @@ class Series(models.Model):
     slug = models.SlugField(max_length=128, unique=True)
     description = models.TextField(max_length=255, blank=True, default='')
     covers = models.JSONField(null=True)
-    # artist = models.CharField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(to=User, null=True, on_delete=models.SET_NULL)
@@ -103,7 +106,7 @@ class PodcastSeries(Series):
             F is used for lock the row in case of concurrent updates
             '''
             try:
-                PodcastSeries.objects.filter(pk=podcast_series_id)\
+                PodcastSeries.objects.filter(pk=podcast_series_id) \
                     .update(published_episode_count=F('published_episode_count') + count_change)
             except Exception as e:
                 logger.exception("Updating series count exception %s", str(e))
@@ -113,29 +116,27 @@ class PodcastSeries(Series):
             #     podcast_series_record.save()
 
 
-# class PodcastEpisodeManager(models.Manager):
-#     def get_default_values(self):
-#         return self.get_queryset().values('id', 'title', 'audio_data', 'covers', 'episode_no', 'duration_in_sec')
-
-
 class PodcastEpisode(models.Model):
     id = models.BigAutoField(primary_key=True)
+    title = models.CharField(max_length=100, null=False)
+    categories = models.CharField(max_length=100, null=True)
+    tags = models.CharField(max_length=500, null=True)
+    language = models.CharField(max_length=3)
+    '''
+    This slug is made with series name + title, slug would be unique
+    '''
+    slug = models.CharField(max_length=255, null=False)
     audio_metadata = models.JSONField(null=True)
-    title = models.CharField(max_length=255, null=False)
-    slug = models.SlugField(max_length=255, null=False, unique=True)
-    episode_no = models.IntegerField(default=1, db_index=True)
-    duration_in_sec = models.IntegerField(default=0)
     covers = models.JSONField(null=True)
-    featured_artists = models.ManyToManyField(to=User, related_name='featured_artists')
-    categories = models.ManyToManyField(to=Category)
-    language = models.CharField(max_length=3, db_index=True)
-    tags = models.ManyToManyField(to=Tag)
-    podcast_series = models.ForeignKey(to=PodcastSeries, on_delete=models.CASCADE, null=False)
+    duration_in_sec = models.IntegerField(default=0)
+    episode_no = models.IntegerField(default=1)
     play_count = models.BigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     published = models.BooleanField(default=False)
     published_at = models.DateTimeField(blank=True, null=True)
+    featured_artists = models.ManyToManyField(to=User, related_name='featured_artists')
+    podcast_series = models.ForeignKey(to=PodcastSeries, on_delete=models.CASCADE, null=False)
 
     _published = None
 
@@ -146,7 +147,16 @@ class PodcastEpisode(models.Model):
             models.UniqueConstraint(
                 fields=['podcast_series', 'title'],
                 name='unique_podcast_series_episode_idx',
-                violation_error_message="Title should be unique for a series")
+                violation_error_message="Title should be unique for a series"),
+        ]
+        indexes = [
+            # language index is not done currently as there are very less choices for language
+            # Index(fields=('language',), name="partial_idx_podcast_lang", condition=Q(published=True)),
+            Index(
+                fields=('podcast_series', 'episode_no',),
+                name="partial_idx_series_episode",
+                condition=Q(published=True)
+            ),
         ]
 
     def __init__(self, *args, **kwargs):
