@@ -27,8 +27,8 @@ def lang_choices() -> List[Tuple]:
 
 
 class MediaCategoryAdmin(admin.ModelAdmin):
-    fields = ('name', 'display_label')
-    list_display = ('name', 'display_label', 'created_at', 'updated_at')
+    fields = ('name', 'display_label', 'bg_color')
+    list_display = ('name', 'display_label', 'created_at', 'updated_at', 'bg_color')
     # list_display = ('name', 'display_label', 'created_at', 'updated_at')
     # list_editable = ('name', 'display_label')
 

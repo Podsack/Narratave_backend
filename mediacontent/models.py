@@ -24,6 +24,7 @@ class Category(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    bg_color = models.CharField(max_length=25, null=True)
 
     class Meta:
         verbose_name = "category"

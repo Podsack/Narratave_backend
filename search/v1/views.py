@@ -1,3 +1,5 @@
+import asyncio
+from typing import Dict, Any
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework import status
@@ -7,9 +9,11 @@ from django.db.models import QuerySet
 from rest_framework.pagination import CursorPagination
 
 from authentication.customauth import CustomAuthBackend, IsConsumer
-from mediacontent.models import PodcastEpisode
+from mediacontent.models import PodcastEpisode, PodcastSeries
+from activity.models import Log, ActivityTypeEnum
+from playback.utils import get_generic_content_value
 from .serializers import SearchContentSerializer
-from playback.constants import MediaTypes
+from activity.utils import transform_activity_dict
 
 
 class CustomCursorPagination(CursorPagination):
@@ -78,13 +82,70 @@ def get_search_tags(request):
 @permission_classes([IsConsumer])
 @authentication_classes([CustomAuthBackend])
 def save_search_history(request):
+    content_id = request.data.get('content_id')
+    content_type = request.data.get('content_type')
 
-    update_or_create(
-        content_type=content_type_model,
-        object_id=episode_id,
-        user=request.user,
-        defaults={
-            'content_progress': content_progress
-        }
-    )
-    pass
+    try:
+        asyncio.run(Log.objects.acreate(
+            activity_type=ActivityTypeEnum.search.value,
+            user=request.user,
+            content_type=content_type,
+            content_id=content_id,
+        ))
+        return Response(data={'success': True}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsConsumer])
+@authentication_classes([CustomAuthBackend])
+def get_recent_searches(request):
+    last_timestamp = request.GET.get('last_timestamp')
+    if request.user is None:
+        return Response(data={'message': 'User is not provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        activities = Log.get_activities_by_user(
+            user_id=request.user.id,
+            months_ago=3,
+            last_played_time=last_timestamp,
+            activity_type=ActivityTypeEnum.search.value
+        )
+
+        model_ids_mapping: Dict[int, Dict[int, Any]] = {}
+
+        prev_last_timestamp = None
+
+        for activity in activities:
+            content_type = activity.content_type
+            prev_last_timestamp = activity.timestamp if prev_last_timestamp is None else min(activity.timestamp, prev_last_timestamp)
+
+            if content_type not in model_ids_mapping:
+                model_ids_mapping[content_type] = {}
+
+            if activity.content_id not in model_ids_mapping[content_type]:
+                model_ids_mapping[content_type][activity.content_id] = None
+
+        for model_type in model_ids_mapping:
+            model_class = get_model_class(model_type)
+            model_id_list = list(model_ids_mapping[model_type].keys())
+            contents = get_generic_content_value(model_class=model_class, id_list=model_id_list)
+
+            for content in contents:
+                model_ids_mapping[model_type][content['id']] = content
+
+        hist_result = transform_activity_dict(activity_history=activities, model_ids_mapping=model_ids_mapping, prev_last_played=prev_last_timestamp)
+
+        return Response(data=hist_result, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def get_model_class(model_type_name):
+    if PodcastEpisode._meta.model_name == model_type_name:
+        return PodcastEpisode
+    elif PodcastSeries._meta.model_name == model_type_name:
+        return PodcastSeries
+    else:
+        return None

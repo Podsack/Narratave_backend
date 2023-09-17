@@ -91,3 +91,30 @@ def get_episodes_by_podcast(request, podcast_series_id):
         return Response(data={'episodes': serialized_podcast_episodes.data}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response(data={"message": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([CustomAuthBackend])
+def get_podcast_episodes_by_ids(request):
+    """
+    This API is exposed for doing id__in queries
+    """
+    try:
+        podcast_episode_query = request.query_params.get('episode_ids')
+
+        if podcast_episode_query is None or podcast_episode_query == '':
+            return Response(data={'message': 'Invalid podcast episode ids'}, status=status.HTTP_400_BAD_REQUEST)
+
+        podcast_episode_ids = list(map(int, podcast_episode_query.split(',')))
+
+        if podcast_episode_ids is not None and isinstance(podcast_episode_ids, list) and len(podcast_episode_ids) == 0:
+            return Response(data={'message': 'Invalid podcast episode ids'}, status=status.HTTP_400_BAD_REQUEST)
+
+        podcast_episodes = PodcastEpisode.objects.filter(id__in=podcast_episode_ids).prefetch_related('featured_artists')\
+            .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])
+
+        serialized_podcast_episodes = PodcastEpisodeSerializer(podcast_episodes, many=True)
+        return Response(data={'episodes': serialized_podcast_episodes.data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -59,7 +59,9 @@ INSTALLED_APPS = [
     'userprofile',
     'mediacontent',
     'playback',
-    'search'
+    'search',
+    'activity',
+    'usercollection',
 ]
 
 MIDDLEWARE = [
