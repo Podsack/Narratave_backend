@@ -9,6 +9,7 @@ from functools import reduce
 
 from authentication.customauth import CustomAuthBackend, IsConsumer
 from ..models import Playlist
+from Narratave.exceptions import ForbiddenError
 from mediacontent.models import PodcastEpisode
 from .serializers import PlaylistWriteSerializer, PlaylistReadonlySerializer, PodcastEpisodeSerializer
 from ..utils import add_duration
@@ -29,6 +30,40 @@ def create_playlist(request):
             'owner': user_id,
             'covers': podcast_details_list[0]['covers'],
             'total_duration_sec': total_time
+        })
+
+    try:
+        if playlist_serializer.is_valid(raise_exception=True):
+            playlist_serializer.save()
+            return Response(data={'message': 'Playlist created', 'data': playlist_serializer.data},
+                            status=status.HTTP_201_CREATED)
+    except ValidationError:
+        return Response(data={'message': playlist_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    except IntegrityError as ie:
+        if str(ie).index('unique_playlist_per_owner') > -1:
+            return Response(data={'message': 'A playlist already exists with this name'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response(data={'message': str(ie)},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsConsumer])
+@authentication_classes([CustomAuthBackend])
+def create_favorite_playlist(request):
+    user_id = request.user.id
+    podcast_ids = request.data.get('podcast_ids')
+    podcast_details_list = PodcastEpisode.objects.filter(id__in=podcast_ids).values('duration_in_sec', 'covers')
+    total_time = reduce(add_duration, podcast_details_list, 0)
+
+    playlist_serializer = PlaylistWriteSerializer(
+        data={
+            **request.data,
+            'title': Playlist.FAVORITE_PLAYLIST_NAME,
+            'owner': user_id,
+            'covers': podcast_details_list[0]['covers'],
+            'total_duration_sec': total_time,
+            'is_required': True
         })
 
     try:
@@ -68,18 +103,12 @@ def add_podcast_to_playlist(request, playlist_id):
     podcast_id = request.data.get('podcast_id')
 
     try:
-        '''
-        Fetch covers and duration to update
-        Also check if this episode exists
-        '''
-        podcast_episode = PodcastEpisode.objects.filter(id=podcast_id).values('duration_in_sec', 'covers').first()
-
-        if podcast_episode is None:
-            return Response(data={'message': 'Invalid podcast detail'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-        current_playlist = Playlist.objects.filter(id=playlist_id).only('id', 'title', 'owner_id', 'is_private',
-                                                                        'podcast_ids',
-                                                                        'covers', 'total_duration_sec').first()
+        current_playlist: Playlist = Playlist.objects.filter(id=playlist_id).only('id', 'title', 'owner_id',
+                                                                                  'is_private',
+                                                                                  'is_required',
+                                                                                  'podcast_ids',
+                                                                                  'covers',
+                                                                                  'total_duration_sec').first()
 
         if current_playlist is None:
             return Response(data={'message': 'Playlist not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -87,22 +116,45 @@ def add_podcast_to_playlist(request, playlist_id):
         if current_playlist.owner_id != user_id:
             return Response(data={'message': 'User is not the owner'}, status=status.HTTP_403_FORBIDDEN)
 
-        if current_playlist.podcast_ids is not None and \
-                isinstance(current_playlist.podcast_ids, list):
-            if podcast_id in current_playlist.podcast_ids:
-                return Response(data={'message': 'Podcast is already present in this playlist'},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-            current_playlist.podcast_ids.insert(0, podcast_id)
-        else:
-            current_playlist.podcast_ids = [podcast_id]
-
-        current_playlist.total_duration_sec = current_playlist.total_duration_sec + podcast_episode['duration_in_sec']
-        current_playlist.covers = podcast_episode['covers']
-        current_playlist.save()
+        current_playlist.add_podcast_id_to_playlist(podcast_id)
 
         return Response(data={'data': PlaylistReadonlySerializer(current_playlist).data},
                         status=status.HTTP_200_OK)
+    except ForbiddenError as fe:
+        return Response(data={'message': str(fe)}, status=status.HTTP_403_FORBIDDEN)
+    except Exception as e:
+        return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT'])
+@permission_classes([IsConsumer])
+@authentication_classes([CustomAuthBackend])
+@transaction.atomic
+def add_podcast_to_favorites(request):
+    user_id = request.user.id
+    podcast_id = request.data.get('podcast_id')
+
+    try:
+        current_playlist: Playlist = Playlist.objects.filter(title=Playlist.FAVORITE_PLAYLIST_NAME, owner=user_id).only(
+            'id', 'title', 'owner_id',
+            'is_required',
+            'is_private',
+            'podcast_ids',
+            'covers',
+            'total_duration_sec').first()
+
+        if current_playlist is None:
+            current_playlist = create_playlist_by_title(playlist_title=Playlist.FAVORITE_PLAYLIST_NAME, user_id=user_id)
+
+        if current_playlist.owner_id != user_id:
+            return Response(data={'message': 'User is not the owner'}, status=status.HTTP_403_FORBIDDEN)
+
+        current_playlist.add_podcast_id_to_playlist(podcast_id)
+
+        return Response(data={'data': PlaylistReadonlySerializer(current_playlist).data},
+                        status=status.HTTP_200_OK)
+    except ForbiddenError as fe:
+        return Response(data={'message': str(fe)}, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
         return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -116,19 +168,9 @@ def remove_podcast_from_playlist(request, playlist_id):
     podcast_id = request.data.get('podcast_id')
 
     try:
-        '''
-        Fetch covers and duration to update
-        Also check if this episode exists
-        '''
-        podcast_episode_to_delete = PodcastEpisode.objects.filter(id=podcast_id).values('duration_in_sec',
-                                                                                        'covers').first()
-
-        if podcast_episode_to_delete is None:
-            return Response(data={'message': 'Invalid podcast detail'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-        current_playlist = Playlist.objects.filter(id=playlist_id).only('id', 'title', 'owner_id', 'is_private',
-                                                                        'podcast_ids', 'covers',
-                                                                        'total_duration_sec').first()
+        current_playlist: Playlist = Playlist.objects.filter(id=playlist_id) \
+            .only('id', 'title', 'owner_id', 'is_private', 'is_required', 'podcast_ids', 'covers',
+                  'total_duration_sec').first()
 
         if current_playlist is None:
             return Response(data={'message': 'Playlist not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -136,30 +178,32 @@ def remove_podcast_from_playlist(request, playlist_id):
         if current_playlist.owner_id != user_id:
             return Response(data={'message': 'User is not the owner'}, status=status.HTTP_403_FORBIDDEN)
 
-        current_last_added_podcast = None
-        if current_playlist.podcast_ids is not None and \
-                isinstance(current_playlist.podcast_ids, list):
-            if podcast_id not in current_playlist.podcast_ids:
-                return Response(data={'message': 'Podcast not in this playlist'}, status=status.HTTP_400_BAD_REQUEST)
+        current_playlist.remove_podcast_id_to_playlist(podcast_id)
+        return Response(data={'data': PlaylistReadonlySerializer(current_playlist).data},
+                        status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-            if current_playlist.podcast_ids[0] == podcast_id and len(current_playlist.podcast_ids) > 1:
-                current_last_added_podcast = current_playlist.podcast_ids[1]
 
-            current_playlist.podcast_ids.remove(podcast_id)
-            current_playlist.total_duration_sec = current_playlist.total_duration_sec - podcast_episode_to_delete[
-                'duration_in_sec']
-        else:
-            current_playlist.podcast_ids = []
+@api_view(['PUT'])
+@permission_classes([IsConsumer])
+@authentication_classes([CustomAuthBackend])
+@transaction.atomic
+def remove_podcast_from_favorite(request):
+    user_id = request.user.id
+    podcast_id = request.data.get('podcast_id')
 
-        if len(current_playlist.podcast_ids) == 0 and current_last_added_podcast is None:
-            current_playlist.total_duration_sec = 0
-            current_playlist.covers = None
-        elif current_last_added_podcast is not None:
-            podcast_episode = PodcastEpisode.objects.filter(id=current_last_added_podcast).values('covers').first()
-            current_playlist.covers = podcast_episode['covers']
+    try:
+        current_playlist: Playlist = Playlist.objects.filter(title=Playlist.FAVORITE_PLAYLIST_NAME, owner=user_id) \
+            .only('id', 'title', 'owner_id', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec').first()
 
-        current_playlist.save()
+        if current_playlist is None:
+            current_playlist = create_playlist_by_title(playlist_title=Playlist.FAVORITE_PLAYLIST_NAME, user_id=user_id)
 
+        if current_playlist.owner_id != user_id:
+            return Response(data={'message': 'User is not the owner'}, status=status.HTTP_403_FORBIDDEN)
+
+        current_playlist.remove_podcast_id_to_playlist(podcast_id)
         return Response(data={'data': PlaylistReadonlySerializer(current_playlist).data},
                         status=status.HTTP_200_OK)
     except Exception as e:
@@ -173,8 +217,8 @@ def get_all_playlists(request):
     user_id = request.user.id
 
     try:
-        playlists = Playlist.objects.filter(owner=user_id).only('id', 'title', 'owner_id', 'is_private',
-                                                                'podcast_ids', 'covers', 'total_duration_sec')
+        playlists = Playlist.objects.filter(owner=user_id, is_required=False) \
+            .only('id', 'title', 'owner_id', 'is_required', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec')
 
         return Response(data={'data': PlaylistReadonlySerializer(playlists, many=True).data}, status=status.HTTP_200_OK)
     except Exception as e:
@@ -187,17 +231,75 @@ def get_all_playlists(request):
 def get_playlist_by_id(request, playlist_id):
     try:
         current_playlist = Playlist.objects.filter(id=playlist_id).only('id', 'title', 'owner_id', 'is_private',
-                                                                'podcast_ids', 'covers', 'total_duration_sec').first()
+                                                                        'podcast_ids', 'covers', 'is_required',
+                                                                        'total_duration_sec').first()
 
         if current_playlist is None:
             raise ValueError("Playlist not found")
 
-        podcast_episodes = PodcastEpisode.objects.filter(id__in=current_playlist.podcast_ids).prefetch_related('featured_artists')\
+        podcast_episodes = PodcastEpisode.objects.filter(id__in=current_playlist.podcast_ids).prefetch_related(
+            'featured_artists') \
             .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])
 
         playlist_data = PlaylistReadonlySerializer(current_playlist).data
         associated_podcast_data = PodcastEpisodeSerializer(podcast_episodes, many=True).data
 
-        return Response(data={'data': {**playlist_data, 'podcasts': associated_podcast_data}}, status=status.HTTP_200_OK)
+        return Response(data={'data': {**playlist_data, 'podcasts': associated_podcast_data}},
+                        status=status.HTTP_200_OK)
     except Exception as e:
         return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsConsumer])
+@authentication_classes([CustomAuthBackend])
+def get_favorite_playlist(request):
+    user_id = request.user.id
+
+    try:
+        current_playlist = Playlist.objects.filter(title=Playlist.FAVORITE_PLAYLIST_NAME, owner=user_id) \
+            .only('id', 'title', 'owner_id', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec').first()
+
+        if current_playlist is None:
+            current_playlist = create_playlist_by_title(playlist_title=Playlist.FAVORITE_PLAYLIST_NAME, user_id=user_id)
+
+        podcast_episodes = PodcastEpisode.objects.filter(id__in=current_playlist.podcast_ids).prefetch_related(
+            'featured_artists') \
+            .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])
+
+        playlist_data = PlaylistReadonlySerializer(current_playlist).data
+        associated_podcast_data = PodcastEpisodeSerializer(podcast_episodes, many=True).data
+
+        return Response(data={'data': {**playlist_data, 'podcasts': associated_podcast_data}},
+                        status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsConsumer])
+@authentication_classes([CustomAuthBackend])
+def delete_playlist(request, playlist_id):
+    try:
+        current_playlist: Playlist = Playlist.objects.filter(id=playlist_id) \
+            .only('id', 'title', 'owner_id', 'is_private', 'is_required', 'podcast_ids', 'covers',
+                  'total_duration_sec').first()
+
+        if current_playlist is None or current_playlist.is_required:
+            return Response(data={'message': 'Cannot delete the playlist'}, status=status.HTTP_404_NOT_FOUND)
+
+        current_playlist.delete()
+
+        return Response(data={'message': 'Playlist deleted successfully'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(data={'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def create_playlist_by_title(playlist_title, user_id):
+    return Playlist.objects.create(
+        title=playlist_title,
+        owner_id=user_id,
+        covers=None,
+        total_duration_sec=0,
+        is_required=True
+    )

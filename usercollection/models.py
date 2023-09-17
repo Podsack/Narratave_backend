@@ -3,6 +3,8 @@ from django.db import models
 from django.contrib.postgres.fields import ArrayField
 
 from authentication.models import User
+from Narratave.exceptions import ForbiddenError
+from mediacontent.models import PodcastEpisode
 
 
 class Playlist(models.Model):
@@ -11,10 +13,13 @@ class Playlist(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     podcast_ids = ArrayField(models.PositiveBigIntegerField(), null=True, blank=True, default=list, size=50)
     is_private = models.BooleanField(default=False)
+    is_required = models.BooleanField(default=False)
     total_duration_sec = models.PositiveIntegerField(default=0)
     covers = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    FAVORITE_PLAYLIST_NAME = 'Favorite Podcasts'
 
     class Meta:
         constraints = [
@@ -22,7 +27,7 @@ class Playlist(models.Model):
                 fields=['title', 'owner'],
                 name='unique_playlist_per_owner',
                 violation_error_message="Playlist already exists"
-            )
+            ),
         ]
 
     @classmethod
@@ -45,6 +50,61 @@ class Playlist(models.Model):
 
         return True
 
-    @classmethod
-    def add_podcast_to_playlist(cls, user_id, playlist_id, podcast_id, podcast_duration, covers):
-        return cls.objects.update()
+    def add_podcast_id_to_playlist(self, podcast_id):
+        """
+        Fetch covers and duration to update
+        Also check if this episode exists
+        """
+        podcast_episode = PodcastEpisode.objects.filter(id=podcast_id).values('duration_in_sec', 'covers').first()
+
+        if podcast_episode is None:
+            raise ValueError("Podcast id not found")
+
+        if self.podcast_ids is not None and \
+                isinstance(self.podcast_ids, list):
+            if podcast_id in self.podcast_ids:
+                raise ValueError('Podcast is already present in this playlist')
+
+            self.podcast_ids.insert(0, podcast_id)
+        else:
+            self.podcast_ids = [podcast_id]
+
+        self.total_duration_sec = self.total_duration_sec + podcast_episode['duration_in_sec']
+        self.covers = podcast_episode['covers']
+        self.save()
+
+    def remove_podcast_id_to_playlist(self, podcast_id):
+        """
+        Fetch covers and duration to update
+        Also check if this episode exists
+        """
+        podcast_episode_to_delete = PodcastEpisode.objects.filter(id=podcast_id).values('duration_in_sec',
+                                                                                        'covers').first()
+
+        if podcast_episode_to_delete is None:
+            raise ValueError('Invalid podcast detail')
+
+        current_last_added_podcast = None
+
+        if self.podcast_ids is not None and \
+                isinstance(self.podcast_ids, list):
+            if podcast_id not in self.podcast_ids:
+                raise ValueError('Podcast not in this playlist')
+
+            if self.podcast_ids[0] == podcast_id and len(self.podcast_ids) > 1:
+                current_last_added_podcast = self.podcast_ids[1]
+
+            self.podcast_ids.remove(podcast_id)
+            self.total_duration_sec = self.total_duration_sec - podcast_episode_to_delete[
+                'duration_in_sec']
+        else:
+            self.podcast_ids = []
+
+        if len(self.podcast_ids) == 0 and current_last_added_podcast is None:
+            self.total_duration_sec = 0
+            self.covers = None
+        elif current_last_added_podcast is not None:
+            podcast_episode = PodcastEpisode.objects.filter(id=current_last_added_podcast).values('covers').first()
+            self.covers = podcast_episode['covers']
+
+        self.save()

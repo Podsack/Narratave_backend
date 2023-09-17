@@ -7,7 +7,7 @@ from ..models import Playlist
 class PlaylistWriteSerializer(ModelSerializer):
     class Meta:
         model = Playlist
-        fields = ('id', 'title', 'owner', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec')
+        fields = ('id', 'title', 'owner', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec', 'is_required')
 
 
 class PlaylistReadonlySerializer(serpy.Serializer):
