@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'search',
     'activity',
     'usercollection',
+    'follows',
 ]
 
 MIDDLEWARE = [

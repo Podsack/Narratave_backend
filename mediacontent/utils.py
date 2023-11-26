@@ -2,11 +2,17 @@ import sys
 import io
 import os
 import datetime
+import cloudinary
 from django.core.files import File
 import uuid
+import cloudinary.uploader
+import cloudinary.api
 
 from PIL import Image
 from pydub import AudioSegment
+from dotenv import load_dotenv
+
+from Narratave.decorators.singleton import Singleton
 
 
 class ImageUtil:
@@ -107,7 +113,7 @@ def convert_audio_in_aac(segmented_audio, bitrate, file_name):
     new_audio = segmented_audio.export(format="adts", bitrate=f"{bitrate}k")
     audio_duration = segmented_audio.duration_seconds
     converted_file = File(file=new_audio, name=out_file_name)
-    file_size = converted_file.size/1024
+    file_size = converted_file.size / 1024
 
     return file_size, converted_file, converted_format, audio_duration
 
@@ -120,3 +126,21 @@ def get_segmented_audio(audio_file):
     file_name = uuid.uuid4().hex
     curr_audio = AudioSegment.from_file(file=audio_file, format=file_extension.replace('.', ''))
     return file_name, curr_audio
+
+
+class CloudinaryUpload(metaclass=Singleton):
+    config = None
+
+    def __init__(self):
+        self.config = cloudinary.config(secure=True)
+
+    def upload_image(self, file=None, remote_path=None):
+        if file is not None and remote_path is not None:
+            return cloudinary.uploader.upload_image(file,
+                                                    public_id=f'{remote_path}', unique_filename=False, overwrite=True)
+        return None
+
+    def upload_audio(self, file=None, remote_path=None):
+        if file is not None and remote_path is not None:
+            return cloudinary.uploader.upload_large(file, public_id=f'{remote_path}', unique_filename=False, overwrite=True)
+        return None

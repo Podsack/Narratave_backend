@@ -28,7 +28,8 @@ urlpatterns = [
     path('v1/media/', include('mediacontent.v1.urls')),
     path('v1/playback/', include('playback.v1.urls')),
     path('v1/search/', include('search.v1.urls')),
-    path('v1/playlist/', include('usercollection.v1.urls'))
+    path('v1/playlist/', include('usercollection.v1.urls')),
+    path('v1/relationship/', include('follows.v1.urls')),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

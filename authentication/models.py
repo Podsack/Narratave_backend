@@ -8,17 +8,11 @@ from django.contrib.postgres.fields import ArrayField
 class User(AbstractUser):
     name = "user"
 
-    ROLE_CHOICES = [
-        ("CONSUMER", "consumer"),
-        ("ARTIST", "artist"),
-        ("AUTHOR", "author")
-    ]
-
     email = models.EmailField()
     username = models.CharField(blank=True, unique=True, max_length=255)
-    role = models.CharField(choices=ROLE_CHOICES, default="CONSUMER", max_length=255)
     profile_picture = models.URLField(blank=True, null=True)
     dob = models.DateField(null=True, blank=True)
+
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = ['email']
@@ -26,20 +20,6 @@ class User(AbstractUser):
     class Meta:
         verbose_name = "user"
         verbose_name_plural = "users"
-        constraints = [
-            models.UniqueConstraint(fields=['email', 'role'], name='unique_email_per_role')
-        ]
-
-    def clean(self):
-        super().clean()
-
-        existing_users = User.objects.filter(email=self.email, role=self.role)
-        if existing_users.exists() and self.pk != existing_users.first().pk:
-            raise ValidationError('Email must be unique per role.')
-
-    def save(self, *args, **kwargs):
-        self.username = f'{self.email}_{self.role}'
-        super().save(*args, **kwargs)
 
     @classmethod
     def get_by_email(cls, email):
@@ -70,3 +50,5 @@ class UserSession(models.Model):
 
     def __str__(self):
         return self.session_key
+
+

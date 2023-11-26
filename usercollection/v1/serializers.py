@@ -29,7 +29,6 @@ class PlaylistReadonlySerializer(serpy.Serializer):
 class EpisodeArtistSerializer(serpy.Serializer):
     id = serpy.IntField()
     name = serpy.MethodField()
-    role = serpy.StrField()
 
     def get_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"

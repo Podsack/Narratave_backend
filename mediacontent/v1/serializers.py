@@ -72,7 +72,6 @@ class PodcastEpisodeSerializer(serpy.Serializer):
 class EpisodeArtistSerializer(serpy.Serializer):
     id = serpy.IntField()
     name = serpy.MethodField()
-    role = serpy.StrField()
 
     def get_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"
@@ -101,22 +100,15 @@ class SectionSerializer(serpy.Serializer):
 
 class AudioMetaDataSerializer(serpy.Serializer):
     size_in_kb = serpy.IntField()
-    audio_id = serpy.MethodField()
     path = serpy.StrField()
     url = serpy.StrField()
     format = serpy.StrField()
 
-    def get_audio_id(self, obj):
-        return str(obj.uuid)
-
 
 class CoverMetaDataSerializer(serpy.Serializer):
     size_in_kb = serpy.IntField()
-    cover_id = serpy.MethodField()
     bg_color = serpy.StrField()
     path = serpy.StrField()
     url = serpy.StrField()
     dimension = serpy.StrField()
 
-    def get_cover_id(self, obj):
-        return str(obj.uuid)

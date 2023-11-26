@@ -8,7 +8,7 @@ from typing import AnyStr
 import datetime
 
 from django.db import models
-from django.db.models import F, Index, Q
+from django.db.models import F, Index, Q, QuerySet
 from django.db.models.functions import Lower, Upper
 from django.utils.text import slugify
 
@@ -136,7 +136,7 @@ class PodcastEpisode(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     published = models.BooleanField(default=False)
     published_at = models.DateTimeField(blank=True, null=True)
-    featured_artists = models.ManyToManyField(to=User, related_name='featured_artists')
+    featured_artists = models.ManyToManyField(to=User, related_name='featured_podcasts')
     podcast_series = models.ForeignKey(to=PodcastSeries, on_delete=models.CASCADE, null=False)
 
     _published = None
@@ -197,6 +197,16 @@ class PodcastEpisode(models.Model):
         except Exception as e:
             logger.exception("Updating play count exception %s", str(e))
 
+    @classmethod
+    async def find_podcast_by_user_ids(cls, user_ids):
+        query = None
+        try:
+            query = await cls.objects.afilter(featured_artists__in=user_ids).only('id', 'title', 'covers', 'published', 'published_at')
+        except Exception as e:
+            logger.exception("Error querying data for %s: %s", user_ids, str(e))
+
+        return query
+
 
 class Section(models.Model):
     title = models.CharField(max_length=255, null=False, db_index=True)
@@ -214,12 +224,10 @@ class Section(models.Model):
 
 class FileMetadata:
     size_in_kb = 0
-    uuid = None
     path = None
     url = None
 
     def __init__(self, *args, **kwargs):
-        self.uuid = uuid.uuid4()
         if 'size_in_kb' in kwargs:
             self.size_in_kb = kwargs['size_in_kb']
 
@@ -230,26 +238,30 @@ class FileMetadata:
 class AudioMetadata(FileMetadata):
     format: AnyStr = None
 
-    def __init__(self, bitrate_in_kbps, output_ext, file, obj_type, *args, **kwargs):
+    def __init__(self, bitrate_in_kbps, output_ext, file, obj_type, path=None, url=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if output_ext is not None:
             self.format = f"{output_ext.upper()}_{bitrate_in_kbps}"
 
-        if file is not None:
-            directory_path = self.get_directory(obj_type=obj_type)
-            os.makedirs(directory_path, exist_ok=True)
+        if path is not None and url is not None:
+            self.path = path
+            self.url = url
+        else:
+            if file is not None:
+                directory_path = self.get_directory(obj_type=obj_type)
+                os.makedirs(directory_path, exist_ok=True)
 
-            file_path = os.path.join(directory_path, file.name)
+                file_path = os.path.join(directory_path, file.name)
 
-            with open(file_path, 'wb') as destination:
-                for chunk in file.chunks():
-                    destination.write(chunk)
+                with open(file_path, 'wb') as destination:
+                    for chunk in file.chunks():
+                        destination.write(chunk)
 
-            self.path = file_path
-            self.url = self.get_url()
+                self.path = file_path
+                self.url = self.get_url()
 
     def get_directory(self, obj_type):
-        output_path = os.path.join(settings.MEDIA_ROOT, obj_type, "audios", self.format, str(self.uuid))
+        output_path = os.path.join(settings.MEDIA_ROOT, obj_type, "audios", self.format)
         return output_path
 
     def get_url(self):
@@ -262,7 +274,7 @@ class ImageMetadata(FileMetadata):
     bg_color = None
     mime_type = None
 
-    def __init__(self, dimension, file, obj_type, mime_type, bg_color, *args, **kwargs):
+    def __init__(self, dimension, file, obj_type, mime_type, bg_color, path, url, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.bg_color = bg_color
@@ -271,21 +283,26 @@ class ImageMetadata(FileMetadata):
         if dimension is not None:
             self.dimension = dimension
 
-        if file is not None:
-            directory_path = self.get_directory(obj_type=obj_type)
-            os.makedirs(directory_path, exist_ok=True)
+        if path is not None and url is not None:
+            self.path = path
+            self.url = url
+        else:
+            if file is not None:
+                directory_path = self.get_directory(obj_type=obj_type)
+                os.makedirs(directory_path, exist_ok=True)
 
-            file_path = os.path.join(directory_path, file.name)
+                file_path = os.path.join(directory_path, file.name)
 
-            with open(file_path, 'wb') as destination:
-                for chunk in file.chunks():
-                    destination.write(chunk)
+                with open(file_path, 'wb') as destination:
+                    for chunk in file.chunks():
+                        destination.write(chunk)
 
-            self.path = file_path
-            self.url = self.get_url()
+                self.path = file_path
+                self.url = self.get_url()
+
 
     def get_directory(self, obj_type):
-        output_path = os.path.join(settings.MEDIA_ROOT, obj_type, "covers", self.dimension, str(self.uuid))
+        output_path = os.path.join(settings.MEDIA_ROOT, obj_type, "covers", self.dimension)
         return output_path
 
     def get_url(self):

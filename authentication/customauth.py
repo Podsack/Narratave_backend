@@ -22,10 +22,9 @@ class CustomAuthBackend(BaseAuthentication):
     @staticmethod
     def authenticate_with_password(request):
         email = request.data.get('email')
-        role = "CONSUMER" if request.data.get('role') is None else request.data.get('role')
         password = request.data.get('password')
 
-        user = User.objects.filter(email=email, role=role).first()
+        user = User.objects.filter(email=email).first()
 
         if password is not None and user is not None and user.check_password(password):
             return user

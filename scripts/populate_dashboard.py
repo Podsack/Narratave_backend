@@ -27,6 +27,7 @@ def populate_new_release():
             'title': SectionEnum.NEW_RELEASES.value,
             'item_count': min(20, len(serialized_data)),
             'contents': serialized_data,
+            'priority': 2
         })
 
 
@@ -41,6 +42,7 @@ def populate_coming_soon():
             'title': SectionEnum.COMING_SOON.value,
             'item_count': min(20, len(serialized_data)),
             'contents': serialized_data,
+            'priority': 3
         })
 
 
@@ -51,7 +53,8 @@ def populate_history():
         defaults={
             'title': SectionEnum.CONTINUE_WHERE_YOU_LEFT.value,
             'item_count': 0,
-            'section_url': HISTORY_URL
+            'section_url': HISTORY_URL,
+            'priority': 1
         })
 
 
@@ -72,10 +75,11 @@ def run():
 def populate_recommended_podcast(section):
     podcast_series = PodcastSeries.objects.distinct().filter(published=True,
                                                              podcastepisode__published=True).prefetch_related(
-        'podcastepisode_set')[:20]
+        'podcastepisode_set')
 
     podcast_list = list(podcast_series)
     random.shuffle(podcast_list)
+    podcast_list = podcast_list[:20]
 
     section, created = Section.objects.update_or_create(
         title=section,
@@ -83,6 +87,7 @@ def populate_recommended_podcast(section):
             'title': section,
             'item_count': min(20, len(podcast_list)),
             'contents': PodcastSeriesSerializer(podcast_series, many=True).data,
+            'priority': 0
         })
 
 

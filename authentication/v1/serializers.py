@@ -36,7 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'password', 'first_name', 'last_name', 'role', 'date_joined', 'email', 'dob', 'preference']
+        fields = ['id', 'password', 'first_name', 'last_name', 'date_joined', 'email', 'dob', 'preference']
         extra_kwargs = {'password': {'write_only': True}}
         read_only_fields = ['first_name', 'last_name', 'date_joined', 'preference']
 
@@ -58,10 +58,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         email = data.get('email')
-        role = "CONSUMER" if data.get('role') is None else data.get('role')
 
         # Check if email already exists
-        if User.objects.filter(email=email, role=role).exists():
+        if User.objects.filter(email=email).exists():
             raise serializers.ValidationError({'email': 'Email already exists.'})
 
         return data

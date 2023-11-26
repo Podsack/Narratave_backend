@@ -1,6 +1,7 @@
 import datetime
 from django.core.files import File
 from django.core.files.uploadedfile import InMemoryUploadedFile
+import uuid
 
 from django.contrib import admin
 from django import forms
@@ -10,7 +11,7 @@ from typing import List, Tuple
 
 from userprofile.utils.app_language_loader import AppLanguageLoader
 
-from .utils import convert_audio_in_aac, get_segmented_audio, ImageUtil
+from .utils import convert_audio_in_aac, get_segmented_audio, ImageUtil, CloudinaryUpload
 from .constants import BITRATE_CHOICES
 from .models import Category, PodcastSeries, PodcastEpisode, Tag, Section, AudioMetadata, ImageMetadata, \
     CoverSize
@@ -67,7 +68,7 @@ class PodcastSeriesAdmin(admin.ModelAdmin):
         covers = model.covers
         urls = []
         if covers is not None:
-            urls = [f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src={cover["url"]}/></a>' if cover[
+            urls = [f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src="{cover["url"]}"/></a>' if cover[
                                                                                                                   "url"] is not None else ''
                     for cover in covers]
         return format_html('<br>'.join(urls))
@@ -87,9 +88,12 @@ class PodcastSeriesAdmin(admin.ModelAdmin):
                 for cover_size in CoverSize:
                     width = cover_size.value
                     file, name, content_type, size = pillow_image.image_resized(h=width, w=width)
-                    file = InMemoryUploadedFile(file, 'image', name, content_type, size, None)
+
+                    path = f'images/{obj._meta.model_name}/{obj.id}/covers/{cover_size.name}/{uuid.uuid4()}'
+                    uploaded_img = CloudinaryUpload().upload_image(file, remote_path=path)
                     img_metadata = ImageMetadata(dimension=cover_size.name, file=file, obj_type=obj._meta.model_name,
-                                                 mime_type=content_type, bg_color=bg_color, size_in_kb=size / 1024)
+                                                 mime_type=content_type, bg_color=bg_color, size_in_kb=size / 1024,
+                                                 path=path, url=uploaded_img.url)
                     covers_list.append(img_metadata)
             obj.covers = CoverMetaDataSerializer(covers_list, many=True).data
 
@@ -141,7 +145,7 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
         urls = []
         if covers is not None:
             urls = [
-                f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src={cover["url"]}/></a>' if "url" in cover else ''
+                f'<a href={cover["url"]}><div>{cover["dimension"]}</div><img src="{cover["url"]}"/></a>' if "url" in cover else ''
                 for cover in covers]
         return format_html('<br>'.join(urls))
 
@@ -190,9 +194,11 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
             for (b, _) in BITRATE_CHOICES:
                 file_size, converted_file, converted_format, audio_duration = convert_audio_in_aac(
                     segmented_audio=curr_audio, bitrate=b, file_name=file_name)
-                # obj.audios.create(file=converted_file, bit_rate=b, format=converted_format, size_in_kb=file_size)
+                path = f'files/{obj._meta.model_name}/{obj.id}/audios/{b}/{uuid.uuid4()}'
+                uploaded_audio = CloudinaryUpload().upload_audio(file=converted_file, remote_path=path)
                 audio_metadata = AudioMetadata(bitrate_in_kbps=b, size_in_kb=file_size, file=converted_file,
-                                               output_ext=converted_format, obj_type=obj._meta.model_name)
+                                               output_ext=converted_format, obj_type=obj._meta.model_name, path=path,
+                                               url=uploaded_audio.get('url'))
                 audio_list.append(audio_metadata)
 
             obj.audio_metadata = AudioMetaDataSerializer(audio_list, many=True).data
@@ -210,10 +216,13 @@ class PodcastEpisodeAdmin(admin.ModelAdmin):
 
                 for cover_size in CoverSize:
                     width = cover_size.value
-                    file, name, content_type, dimension = pillow_image.image_resized(h=width, w=width)
-                    file = InMemoryUploadedFile(file, 'image', name, content_type, dimension, None)
+                    file, name, content_type, file_size = pillow_image.image_resized(h=width, w=width)
+                    path = f'images/{obj._meta.model_name}/{obj.id}/covers/{cover_size.name}/{uuid.uuid4()}'
+                    uploaded_img = CloudinaryUpload().upload_image(file, remote_path=path)
+                    # file = InMemoryUploadedFile(file, 'image', name, content_type, dimension, None)
                     img_metadata = ImageMetadata(dimension=cover_size.name, file=file, obj_type=obj._meta.model_name,
-                                                 mime_type=content_type, bg_color=bg_color, size_in_kb=dimension / 1024)
+                                                 mime_type=content_type, bg_color=bg_color, size_in_kb=file_size / 1024,
+                                                 path=path, url=uploaded_img.url)
                     covers_list.append(img_metadata)
             obj.covers = CoverMetaDataSerializer(covers_list, many=True).data
 
