@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
@@ -8,14 +9,14 @@ from django.contrib.postgres.fields import ArrayField
 class User(AbstractUser):
     name = "user"
 
-    email = models.EmailField()
+    email = models.EmailField(unique=True)
     username = models.CharField(blank=True, unique=True, max_length=255)
     profile_picture = models.URLField(blank=True, null=True)
     dob = models.DateField(null=True, blank=True)
 
-    USERNAME_FIELD = "username"
+    USERNAME_FIELD = "email"
     EMAIL_FIELD = "email"
-    REQUIRED_FIELDS = ['email']
+    REQUIRED_FIELDS = []
 
     class Meta:
         verbose_name = "user"
@@ -24,6 +25,7 @@ class User(AbstractUser):
     @classmethod
     def get_by_email(cls, email):
         return cls.objects.select_related('preference').filter(email=email).first()
+    
 
 
 class UserSession(models.Model):

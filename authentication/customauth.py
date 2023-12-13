@@ -30,10 +30,10 @@ class CustomAuthBackend(BaseAuthentication):
             return user
 
 
-class IsConsumer(IsAuthenticated):
-    def has_permission(self, request, view) -> bool:
-        return bool(super().has_permission(request, view) and request.user.role == 'CONSUMER')
-
+# class IsConsumer(IsAuthenticated):
+#     def has_permission(self, request, view) -> bool:
+#         return bool(super().has_permission(request, view) and request.user.role == 'CONSUMER')
+#
 
 class IsAuthor(IsAuthenticated):
     def has_permission(self, request, view) -> bool:

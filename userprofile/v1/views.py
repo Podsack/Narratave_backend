@@ -5,13 +5,14 @@ import rest_framework.status as status
 import asyncio
 
 from ..models import Preference
-from authentication.customauth import CustomAuthBackend, IsConsumer
+from authentication.customauth import CustomAuthBackend
+from rest_framework.permissions import IsAuthenticated
 from ..utils.app_language_loader import AppLanguageLoader
 from .serializers import UserPreferenceSerializer
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 # @sync_to_async
 def retrieve_app_languages(request):
@@ -29,7 +30,7 @@ def retrieve_app_languages(request):
 
 
 @api_view(['PUT'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def update_preferences(request):
     try:

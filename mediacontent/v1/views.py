@@ -4,7 +4,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
-from authentication.customauth import CustomAuthBackend, IsConsumer
+from authentication.customauth import CustomAuthBackend
+from rest_framework.permissions import IsAuthenticated
 from .serializers import CategorySerializer, SectionSerializer, PodcastSeriesSerializer, PodcastEpisodeSerializer
 from ..models import Category, Section, PodcastSeries, PodcastEpisode
 
@@ -19,7 +20,7 @@ def retrieve_content_categories(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_dashboard_sections(request):
     sections = Section.objects.filter(active=True).order_by('priority')
@@ -28,7 +29,7 @@ def get_dashboard_sections(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_customer_history(request):
     sections = Section.objects.filter(active=True)

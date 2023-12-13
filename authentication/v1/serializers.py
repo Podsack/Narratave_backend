@@ -42,7 +42,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password')
-        user = User(**validated_data)
+        user = User(**validated_data, username=validated_data.get('email'))
         user.set_password(raw_password=password)
         user.save()
         current_ip = AuthUtils.get_client_ip_address(request=self.context.get('request'))

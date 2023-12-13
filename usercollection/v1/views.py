@@ -7,8 +7,9 @@ from django.db.utils import IntegrityError
 
 from functools import reduce
 
-from authentication.customauth import CustomAuthBackend, IsConsumer
+from authentication.customauth import CustomAuthBackend
 from ..models import Playlist
+from rest_framework.permissions import IsAuthenticated
 from Narratave.exceptions import ForbiddenError
 from mediacontent.models import PodcastEpisode
 from .serializers import PlaylistWriteSerializer, PlaylistReadonlySerializer, PodcastEpisodeSerializer
@@ -16,7 +17,7 @@ from ..utils import add_duration
 
 
 @api_view(['POST'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def create_playlist(request):
     user_id = request.user.id
@@ -48,7 +49,7 @@ def create_playlist(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def create_favorite_playlist(request):
     user_id = request.user.id
@@ -82,7 +83,7 @@ def create_favorite_playlist(request):
 
 
 @api_view(['PUT'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def update_playlist(request):
     new_podcast_ids_map = request.data.get('new_podcast_ids_map')
@@ -95,7 +96,7 @@ def update_playlist(request):
 
 
 @api_view(['PUT'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 @transaction.atomic
 def add_podcast_to_playlist(request, playlist_id):
@@ -127,7 +128,7 @@ def add_podcast_to_playlist(request, playlist_id):
 
 
 @api_view(['PUT'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 @transaction.atomic
 def add_podcast_to_favorites(request):
@@ -160,7 +161,7 @@ def add_podcast_to_favorites(request):
 
 
 @api_view(['PUT'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 @transaction.atomic
 def remove_podcast_from_playlist(request, playlist_id):
@@ -186,7 +187,7 @@ def remove_podcast_from_playlist(request, playlist_id):
 
 
 @api_view(['PUT'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 @transaction.atomic
 def remove_podcast_from_favorite(request):
@@ -211,7 +212,7 @@ def remove_podcast_from_favorite(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_all_playlists(request):
     user_id = request.user.id
@@ -226,7 +227,7 @@ def get_all_playlists(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_playlist_by_id(request, playlist_id):
     try:
@@ -251,7 +252,7 @@ def get_playlist_by_id(request, playlist_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_favorite_playlist(request):
     user_id = request.user.id
@@ -277,7 +278,7 @@ def get_favorite_playlist(request):
 
 
 @api_view(['DELETE'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def delete_playlist(request, playlist_id):
     try:

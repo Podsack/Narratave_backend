@@ -8,8 +8,9 @@ from django.db.models import Q
 from django.db.models import QuerySet
 from rest_framework.pagination import CursorPagination
 
-from authentication.customauth import CustomAuthBackend, IsConsumer
+from authentication.customauth import CustomAuthBackend
 from mediacontent.models import PodcastEpisode, PodcastSeries
+from rest_framework.permissions import IsAuthenticated
 from activity.models import Log, ActivityTypeEnum
 from playback.utils import get_generic_content_value
 from .serializers import SearchContentSerializer
@@ -23,7 +24,7 @@ class CustomCursorPagination(CursorPagination):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def search_content(request):
     keyword = request.GET.get('search')
@@ -61,7 +62,7 @@ def search_content(request):
 
 # TODO: Tries or balanced BST for searching
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_search_tags(request):
     keyword = request.GET.get('search')
@@ -79,7 +80,7 @@ def get_search_tags(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def save_search_history(request):
     content_id = request.data.get('content_id')
@@ -98,7 +99,7 @@ def save_search_history(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_recent_searches(request):
     last_timestamp = request.GET.get('last_timestamp')

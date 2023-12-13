@@ -7,7 +7,8 @@ from django.contrib.contenttypes.models import ContentType
 from rest_framework.serializers import ValidationError
 import asyncio
 
-from authentication.customauth import CustomAuthBackend, IsConsumer
+from authentication.customauth import CustomAuthBackend
+from rest_framework.permissions import IsAuthenticated
 from mediacontent.models import PodcastEpisode
 from playback.utils import get_generic_content_value, transform_history_dict
 from ..constants import MediaTypes
@@ -16,7 +17,7 @@ from .serializers import PlaybackHistoryRequestSerializer
 
 
 @api_view(['POST'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def save_playback_history(request):
     episode_id = request.data.get('episode_id')
@@ -48,7 +49,7 @@ def save_playback_history(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsConsumer])
+@permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
 def get_history_by_user(request):
     page_size = request.GET.get('page_size')
