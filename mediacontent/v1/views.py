@@ -10,6 +10,8 @@ from .serializers import CategorySerializer, SectionSerializer, PodcastSeriesSer
 from ..models import Category, Section, PodcastSeries, PodcastEpisode
 
 
+episode_select_fields = ['id', 'slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no']
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @authentication_classes([CustomAuthBackend])
@@ -84,7 +86,7 @@ def get_episodes_by_podcast(request, podcast_series_id):
     podcast_episodes = PodcastEpisode.objects\
         .filter(podcast_series=podcast_series_id, episode_no__lte=upper_limit, episode_no__gt=lower_limit, published=True,) \
         .prefetch_related('featured_artists') \
-        .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no']) \
+        .only(*episode_select_fields) \
         .order_by('-episode_no' if order is 'DESC' else 'episode_no')
 
     try:
@@ -113,7 +115,7 @@ def get_podcast_episodes_by_ids(request):
             return Response(data={'message': 'Invalid podcast episode ids'}, status=status.HTTP_400_BAD_REQUEST)
 
         podcast_episodes = PodcastEpisode.objects.filter(id__in=podcast_episode_ids).prefetch_related('featured_artists')\
-            .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])
+            .only(*episode_select_fields)
 
         serialized_podcast_episodes = PodcastEpisodeSerializer(podcast_episodes, many=True)
         return Response(data={'episodes': serialized_podcast_episodes.data}, status=status.HTTP_200_OK)

@@ -46,6 +46,7 @@ class AudioDataSerializer(serpy.Serializer):
 
 
 class PodcastEpisodeSerializer(serpy.Serializer):
+    id = serpy.IntField()
     audios = serpy.MethodField()
     title = serpy.StrField()
     slug = serpy.StrField()

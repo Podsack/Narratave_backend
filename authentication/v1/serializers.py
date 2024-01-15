@@ -38,7 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'password', 'first_name', 'last_name', 'date_joined', 'email', 'dob', 'preference']
         extra_kwargs = {'password': {'write_only': True}}
-        read_only_fields = ['first_name', 'last_name', 'date_joined', 'preference']
+        read_only_fields = ['date_joined', 'preference']
 
     def create(self, validated_data):
         password = validated_data.pop('password')
