@@ -3,8 +3,7 @@ from django.db import models
 from django.contrib.postgres.fields import ArrayField
 
 from authentication.models import User
-from Narratave.exceptions import ForbiddenError
-from mediacontent.models import PodcastEpisode
+from mediacontent.models import PodcastSeries
 
 
 class Playlist(models.Model):
@@ -14,7 +13,6 @@ class Playlist(models.Model):
     podcast_ids = ArrayField(models.PositiveBigIntegerField(), null=True, blank=True, default=list, size=50)
     is_private = models.BooleanField(default=False)
     is_required = models.BooleanField(default=False)
-    total_duration_sec = models.PositiveIntegerField(default=0)
     covers = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -55,7 +53,7 @@ class Playlist(models.Model):
         Fetch covers and duration to update
         Also check if this episode exists
         """
-        podcast_episode = PodcastEpisode.objects.filter(id=podcast_id).values('duration_in_sec', 'covers').first()
+        podcast_episode = PodcastSeries.objects.filter(id=podcast_id).values('covers').first()
 
         if podcast_episode is None:
             raise ValueError("Podcast id not found")
@@ -69,7 +67,6 @@ class Playlist(models.Model):
         else:
             self.podcast_ids = [podcast_id]
 
-        self.total_duration_sec = self.total_duration_sec + podcast_episode['duration_in_sec']
         self.covers = podcast_episode['covers']
         self.save()
 
@@ -78,8 +75,7 @@ class Playlist(models.Model):
         Fetch covers and duration to update
         Also check if this episode exists
         """
-        podcast_episode_to_delete = PodcastEpisode.objects.filter(id=podcast_id).values('duration_in_sec',
-                                                                                        'covers').first()
+        podcast_episode_to_delete = PodcastSeries.objects.filter(id=podcast_id).values('covers').first()
 
         if podcast_episode_to_delete is None:
             raise ValueError('Invalid podcast detail')
@@ -95,16 +91,13 @@ class Playlist(models.Model):
                 current_last_added_podcast = self.podcast_ids[1]
 
             self.podcast_ids.remove(podcast_id)
-            self.total_duration_sec = self.total_duration_sec - podcast_episode_to_delete[
-                'duration_in_sec']
         else:
             self.podcast_ids = []
 
         if len(self.podcast_ids) == 0 and current_last_added_podcast is None:
-            self.total_duration_sec = 0
             self.covers = None
         elif current_last_added_podcast is not None:
-            podcast_episode = PodcastEpisode.objects.filter(id=current_last_added_podcast).values('covers').first()
+            podcast_episode = PodcastSeries.objects.filter(id=current_last_added_podcast).values('covers').first()
             self.covers = podcast_episode['covers']
 
         self.save()

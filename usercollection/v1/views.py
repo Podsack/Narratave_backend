@@ -11,9 +11,9 @@ from authentication.customauth import CustomAuthBackend
 from ..models import Playlist
 from rest_framework.permissions import IsAuthenticated
 from Narratave.exceptions import ForbiddenError
-from mediacontent.models import PodcastEpisode
+from mediacontent.models import PodcastSeries
 from .serializers import PlaylistWriteSerializer, PlaylistReadonlySerializer, PodcastEpisodeSerializer
-from ..utils import add_duration
+from ..utils import add_duration, get_cover_from_list
 
 
 @api_view(['POST'])
@@ -22,15 +22,18 @@ from ..utils import add_duration
 def create_playlist(request):
     user_id = request.user.id
     podcast_ids = request.data.get('podcast_ids')
-    podcast_details_list = PodcastEpisode.objects.filter(id__in=podcast_ids).values('duration_in_sec', 'covers')
-    total_time = reduce(add_duration, podcast_details_list, 0)
+
+    if podcast_ids is None or len(podcast_ids) == 0:
+        return Response(data={'message': 'Playlist must have atleast one item'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    podcast_series_episodes_list = PodcastSeries.objects.filter(id__in=podcast_ids).prefetch_related('podcastepisode_set').values('podcastepisode__covers')
 
     playlist_serializer = PlaylistWriteSerializer(
         data={
             **request.data,
             'owner': user_id,
-            'covers': podcast_details_list[0]['covers'],
-            'total_duration_sec': total_time
+            'covers': get_cover_from_list(podcast_series_episodes_list),
         })
 
     try:
@@ -54,7 +57,7 @@ def create_playlist(request):
 def create_favorite_playlist(request):
     user_id = request.user.id
     podcast_ids = request.data.get('podcast_ids')
-    podcast_details_list = PodcastEpisode.objects.filter(id__in=podcast_ids).values('duration_in_sec', 'covers')
+    podcast_details_list = PodcastSeries.objects.filter(id__in=podcast_ids).prefetch_related('podcastepisode_set').values('podcastepisode__duration_in_sec', 'podcastepisode__covers')
     total_time = reduce(add_duration, podcast_details_list, 0)
 
     playlist_serializer = PlaylistWriteSerializer(
@@ -62,8 +65,7 @@ def create_favorite_playlist(request):
             **request.data,
             'title': Playlist.FAVORITE_PLAYLIST_NAME,
             'owner': user_id,
-            'covers': podcast_details_list[0]['covers'],
-            'total_duration_sec': total_time,
+            'covers': get_cover_from_list(podcast_details_list),
             'is_required': True
         })
 
@@ -108,8 +110,7 @@ def add_podcast_to_playlist(request, playlist_id):
                                                                                   'is_private',
                                                                                   'is_required',
                                                                                   'podcast_ids',
-                                                                                  'covers',
-                                                                                  'total_duration_sec').first()
+                                                                                  'covers').first()
 
         if current_playlist is None:
             return Response(data={'message': 'Playlist not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -142,7 +143,7 @@ def add_podcast_to_favorites(request):
             'is_private',
             'podcast_ids',
             'covers',
-            'total_duration_sec').first()
+            'total_podcast_count').first()
 
         if current_playlist is None:
             current_playlist = create_playlist_by_title(playlist_title=Playlist.FAVORITE_PLAYLIST_NAME, user_id=user_id)
@@ -171,7 +172,7 @@ def remove_podcast_from_playlist(request, playlist_id):
     try:
         current_playlist: Playlist = Playlist.objects.filter(id=playlist_id) \
             .only('id', 'title', 'owner_id', 'is_private', 'is_required', 'podcast_ids', 'covers',
-                  'total_duration_sec').first()
+                  'total_podcast_count').first()
 
         if current_playlist is None:
             return Response(data={'message': 'Playlist not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -196,7 +197,7 @@ def remove_podcast_from_favorite(request):
 
     try:
         current_playlist: Playlist = Playlist.objects.filter(title=Playlist.FAVORITE_PLAYLIST_NAME, owner=user_id) \
-            .only('id', 'title', 'owner_id', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec').first()
+            .only('id', 'title', 'owner_id', 'is_private', 'podcast_ids', 'covers').first()
 
         if current_playlist is None:
             current_playlist = create_playlist_by_title(playlist_title=Playlist.FAVORITE_PLAYLIST_NAME, user_id=user_id)
@@ -219,7 +220,7 @@ def get_all_playlists(request):
 
     try:
         playlists = Playlist.objects.filter(owner=user_id, is_required=False) \
-            .only('id', 'title', 'owner_id', 'is_required', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec')
+            .only('id', 'title', 'owner_id', 'is_required', 'is_private', 'podcast_ids', 'covers')
 
         return Response(data={'data': PlaylistReadonlySerializer(playlists, many=True).data}, status=status.HTTP_200_OK)
     except Exception as e:
@@ -232,15 +233,13 @@ def get_all_playlists(request):
 def get_playlist_by_id(request, playlist_id):
     try:
         current_playlist = Playlist.objects.filter(id=playlist_id).only('id', 'title', 'owner_id', 'is_private',
-                                                                        'podcast_ids', 'covers', 'is_required',
-                                                                        'total_duration_sec').first()
+                                                                        'podcast_ids', 'covers', 'is_required').first()
 
         if current_playlist is None:
             raise ValueError("Playlist not found")
 
-        podcast_episodes = PodcastEpisode.objects.filter(id__in=current_playlist.podcast_ids).prefetch_related(
-            'featured_artists') \
-            .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])
+        podcast_episodes = PodcastSeries.objects.filter(id__in=current_playlist.podcast_ids) \
+            .only(*['id', 'slug', 'name', 'published_at', 'covers', 'published_episode_count'])
 
         playlist_data = PlaylistReadonlySerializer(current_playlist).data
         associated_podcast_data = PodcastEpisodeSerializer(podcast_episodes, many=True).data
@@ -259,14 +258,13 @@ def get_favorite_playlist(request):
 
     try:
         current_playlist = Playlist.objects.filter(title=Playlist.FAVORITE_PLAYLIST_NAME, owner=user_id) \
-            .only('id', 'title', 'owner_id', 'is_private', 'podcast_ids', 'covers', 'total_duration_sec').first()
+            .only('id', 'title', 'owner_id', 'is_private', 'podcast_ids', 'covers').first()
 
         if current_playlist is None:
             current_playlist = create_playlist_by_title(playlist_title=Playlist.FAVORITE_PLAYLIST_NAME, user_id=user_id)
 
-        podcast_episodes = PodcastEpisode.objects.filter(id__in=current_playlist.podcast_ids).prefetch_related(
-            'featured_artists') \
-            .only(*['slug', 'title', 'duration_in_sec', 'audio_metadata', 'covers', 'episode_no'])
+        podcast_episodes = PodcastSeries.objects.filter(id__in=current_playlist.podcast_ids) \
+            .only(*['id', 'slug', 'name', 'published_at', 'covers', 'published_episode_count'])
 
         playlist_data = PlaylistReadonlySerializer(current_playlist).data
         associated_podcast_data = PodcastEpisodeSerializer(podcast_episodes, many=True).data
@@ -283,8 +281,7 @@ def get_favorite_playlist(request):
 def delete_playlist(request, playlist_id):
     try:
         current_playlist: Playlist = Playlist.objects.filter(id=playlist_id) \
-            .only('id', 'title', 'owner_id', 'is_private', 'is_required', 'podcast_ids', 'covers',
-                  'total_duration_sec').first()
+            .only('id', 'title', 'owner_id', 'is_private', 'is_required', 'podcast_ids', 'covers').first()
 
         if current_playlist is None or current_playlist.is_required:
             return Response(data={'message': 'Cannot delete the playlist'}, status=status.HTTP_404_NOT_FOUND)
@@ -301,6 +298,5 @@ def create_playlist_by_title(playlist_title, user_id):
         title=playlist_title,
         owner_id=user_id,
         covers=None,
-        total_duration_sec=0,
         is_required=True
     )
