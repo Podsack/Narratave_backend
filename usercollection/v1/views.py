@@ -13,7 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from Narratave.exceptions import ForbiddenError
 from mediacontent.models import PodcastSeries
 from .serializers import PlaylistWriteSerializer, PlaylistReadonlySerializer, PodcastEpisodeSerializer
-from ..utils import add_duration, get_cover_from_list
+from ..utils import get_cover_from_list
 
 
 @api_view(['POST'])
@@ -58,7 +58,6 @@ def create_favorite_playlist(request):
     user_id = request.user.id
     podcast_ids = request.data.get('podcast_ids')
     podcast_details_list = PodcastSeries.objects.filter(id__in=podcast_ids).prefetch_related('podcastepisode_set').values('podcastepisode__duration_in_sec', 'podcastepisode__covers')
-    total_time = reduce(add_duration, podcast_details_list, 0)
 
     playlist_serializer = PlaylistWriteSerializer(
         data={
